@@ -26,8 +26,14 @@ function App() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [view]);
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainContent = document.querySelector(".main-content");
+    if (mainContent) {
+      mainContent.scrollTop = 0;
+    }
+  }, [activePage, view]);
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
