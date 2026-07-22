@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <linearGradient id="bg_bio2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#02210C"/>
+          <stop offset="60%" stop-color="#0A5C26"/>
+          <stop offset="100%" stop-color="#011205"/>
+        </linearGradient>
+        <radialGradient id="glow_bio2" cx="75%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#22C55E" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="600" height="400" fill="url(#bg_bio2)"/>
+      <rect width="600" height="400" fill="url(#glow_bio2)"/>
+      <!-- Skyward towering sugarcane stalk -->
+      <g transform="translate(420, 40)">
+        <path d="M40,320 L40,40" stroke="#22C55E" stroke-width="18" stroke-linecap="round"/>
+        <path d="M40,240 Q70,210 110,225" stroke="#22C55E" stroke-width="6" fill="none"/>
+        <path d="M40,160 Q0,130 -40,145" stroke="#22C55E" stroke-width="6" fill="none"/>
+        <path d="M40,80 Q80,50 120,65" stroke="#22C55E" stroke-width="6" fill="none"/>
+        <polygon points="40,10 20,40 60,40" fill="#FFF"/>
+        <circle cx="40" cy="10" r="16" fill="#22C55E" opacity="0.8"/>
+      </g>
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#22C55E" stroke-width="4"/>
+    </svg>

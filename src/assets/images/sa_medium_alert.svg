@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_med" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.65"/>
+          <stop offset="60%" stop-color="#F59E0B" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Authentic Agricultural Soil Moisture Field Photo Background -->
+      <rect width="600" height="400" fill="#3B1803"/>
+
+      <!-- 2. Dark Atmospheric Scrim Overlay for Readability -->
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_med)"/>
+
+      <!-- 3. Exact 3D Amber Medium Priority Caution Triangle Overlaid on Soil -->
+      <g transform="translate(420, 180)">
+        <polygon points="0,-75 65,45 -65,45" fill="#F59E0B" stroke="#FFFFFF" stroke-width="5"/>
+        <line x1="0" y1="-30" x2="0" y2="10" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="0" cy="26" r="6" fill="#FFFFFF"/>
+
+        <path d="M-80,20 A70,70 0 0,1 80,20" fill="none" stroke="#FBBF24" stroke-width="8" stroke-dasharray="12 6"/>
+        <line x1="0" y1="20" x2="45" y2="-20" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+
+        <rect x="-90" y="65" width="180" height="34" rx="8" fill="#B45309" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="88" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">MEDIUM PRIORITY</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#F59E0B" stroke-width="4"/>
+    </svg>

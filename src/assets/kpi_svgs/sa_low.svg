@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_sa_low" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#082347"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_sa_low" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_sa_low" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#3B82F6" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_sa_low)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_sa_low)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_sa_low)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <circle cx="150" cy="100" r="45" fill="#3B82F6"/>
+        <path d="M125,100 L145,120 L180,80" stroke="#FFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#3B82F6" stroke-width="2" opacity="0.4"/>
+  </svg>

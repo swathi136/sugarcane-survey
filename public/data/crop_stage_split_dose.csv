@@ -1,0 +1,11 @@
+location_id,crop_stage,days_after_planting,n_pct,p_pct,k_pct
+L003,Germination,1–30 days,10,50,0
+L003,Tillering stage,31–90 days,25,50,15
+L003,Growth,91–150 days,40,0,35
+L003,Grand Growth,151-240 days,25,0,50
+L003,Maturity,241-300 days,0,0,0
+L002,Germination,1–30 days,10,50,0
+L002,Tillering stage,31–90 days,25,50,15
+L002,Growth,91–150 days,40,0,35
+L002,Grand Growth,151-240 days,25,0,50
+L002,Maturity,241-300 days,0,0,0

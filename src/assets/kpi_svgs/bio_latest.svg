@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_bio_latest" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1C1B4E"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_bio_latest" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#6366F1" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#6366F1" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_bio_latest" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#6366F1" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_bio_latest)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_bio_latest)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_bio_latest)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <rect x="80" y="45" width="140" height="115" rx="10" fill="none" stroke="#6366F1" stroke-width="5"/>
+        <line x1="80" y1="80" x2="220" y2="80" stroke="#6366F1" stroke-width="4"/>
+        <line x1="110" y1="30" x2="110" y2="55" stroke="#6366F1" stroke-width="6" stroke-linecap="round"/>
+        <line x1="190" y1="30" x2="190" y2="55" stroke="#6366F1" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="115" cy="110" r="7" fill="#6366F1"/>
+        <circle cx="150" cy="110" r="7" fill="#6366F1"/>
+        <circle cx="185" cy="110" r="7" fill="#6366F1"/>
+        <circle cx="115" cy="135" r="7" fill="#6366F1"/>
+        <circle cx="150" cy="135" r="7" fill="#6366F1"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#6366F1" stroke-width="2" opacity="0.4"/>
+  </svg>

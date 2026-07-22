@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <!-- Rich 2026 dark atmospheric background gradient -->
+      <linearGradient id="bg_ov_treatments" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1F1135"/>
+        <stop offset="65%" stop-color="#3B1C66"/>
+        <stop offset="100%" stop-color="#050806"/>
+      </linearGradient>
+
+      <!-- Ambient radial lighting vignette -->
+      <radialGradient id="glow_ov_treatments" cx="75%" cy="35%" r="65%">
+        <stop offset="0%" stop-color="#A855F7" stop-opacity="0.45"/>
+        <stop offset="50%" stop-color="#A855F7" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#A855F7" stop-opacity="0.0"/>
+      </radialGradient>
+
+      <!-- Precision tech grid overlay -->
+      <pattern id="grid_ov_treatments" width="16" height="16" patternUnits="userSpaceOnUse">
+        <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#A855F7" stroke-width="0.5" opacity="0.09"/>
+      </pattern>
+    </defs>
+
+    <!-- Base Canvas -->
+    <rect width="300" height="200" fill="url(#bg_ov_treatments)"/>
+    <rect width="300" height="200" fill="url(#grid_ov_treatments)"/>
+    <rect width="300" height="200" fill="url(#glow_ov_treatments)"/>
+
+    <!-- Tailored Vector Scene Artwork -->
+    
+          <circle cx="210" cy="95" r="35" fill="#A855F7" opacity="0.7"/>
+        
+          <g transform="translate(210, 80)">
+            <path d="M-30,-40 L30,-40 L40,50 Q40,65 0,65 Q-40,65 -40,50 Z" fill="#A855F7" opacity="0.75" stroke="#FFF" stroke-width="2"/>
+            <line x1="-30" y1="-30" x2="30" y2="-30" stroke="#FFF" stroke-width="4"/>
+            <text x="0" y="15" font-size="16" font-weight="900" fill="#FFF" text-anchor="middle" font-family="sans-serif">NPK</text>
+          </g>
+        
+          <circle cx="210" cy="95" r="35" fill="#A855F7" opacity="0.7"/>
+        
+
+    <!-- Top Glow Rim Accent Line -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#A855F7" stroke-width="2.5" opacity="0.8"/>
+  </svg>

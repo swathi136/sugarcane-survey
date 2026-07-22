@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_dq_qual" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#10B981" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. High Quality Sugarcane Crop Field Photo -->
+      <rect width="600" height="400" fill="#032F1D"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_dq_qual)"/>
+
+      <!-- 2. Quality Approved Seal Stamp Symbol Overlaid on Farmland -->
+      <g transform="translate(420, 180)">
+        <circle r="60" fill="#10B981" stroke="#FFFFFF" stroke-width="5"/>
+        <path d="M-22,-5 L-4,15 L26,-15" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+        <rect x="-85" y="80" width="170" height="34" rx="8" fill="#047857" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="103" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">QUALITY 100%</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#10B981" stroke-width="4"/>
+    </svg>

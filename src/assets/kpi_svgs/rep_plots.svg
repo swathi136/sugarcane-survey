@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_rep_plots" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#043722"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_rep_plots" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#10B981" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#10B981" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_rep_plots" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#10B981" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_rep_plots)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_rep_plots)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_rep_plots)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <rect x="75" y="40" width="150" height="120" rx="6" fill="none" stroke="#10B981" stroke-width="4" stroke-dasharray="8,4"/>
+        <line x1="150" y1="40" x2="150" y2="160" stroke="#10B981" stroke-width="3"/>
+        <line x1="75" y1="100" x2="225" y2="100" stroke="#10B981" stroke-width="3"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#10B981" stroke-width="2" opacity="0.4"/>
+  </svg>

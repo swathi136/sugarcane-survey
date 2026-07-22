@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_types" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#6366F1" stop-opacity="0.65"/>
+          <stop offset="60%" stop-color="#6366F1" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Authentic Agronomy Field Survey Photo Background -->
+      <rect width="600" height="400" fill="#171542"/>
+
+      <!-- 2. Dark Atmospheric Scrim Overlay for Readability -->
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_types)"/>
+
+      <!-- 3. Exact Alert Types Symbol Matrix Overlaid on Farm Plots -->
+      <g transform="translate(420, 170)">
+        <line x1="-50" y1="-40" x2="50" y2="40" stroke="#6366F1" stroke-width="3" opacity="0.8"/>
+        <line x1="50" y1="-40" x2="-50" y2="40" stroke="#6366F1" stroke-width="3" opacity="0.8"/>
+
+        <!-- Symbol 1: Red Bell -->
+        <g transform="translate(-50, -40)">
+          <circle r="26" fill="#EF4444" stroke="#FFF" stroke-width="3"/>
+          <path d="M0,-12 Q8,-12 8,4 L12,12 L-12,12 L-8,4 Q-8,-12 0,-12 Z" fill="#FFF"/>
+        </g>
+
+        <!-- Symbol 2: High Danger Shield -->
+        <g transform="translate(50, -40)">
+          <circle r="26" fill="#DC2626" stroke="#FFF" stroke-width="3"/>
+          <path d="M0,-12 L10,-4 L10,6 Q0,16 0,16 Q0,16 -10,6 L-10,-4 Z" fill="#FFF"/>
+        </g>
+
+        <!-- Symbol 3: Medium Warning Triangle -->
+        <g transform="translate(-50, 40)">
+          <circle r="26" fill="#F59E0B" stroke="#FFF" stroke-width="3"/>
+          <polygon points="0,-12 12,10 -12,10" fill="#FFF"/>
+        </g>
+
+        <!-- Symbol 4: Low Info Check -->
+        <g transform="translate(50, 40)">
+          <circle r="26" fill="#10B981" stroke="#FFF" stroke-width="3"/>
+          <path d="M-8,0 L-2,6 L8,-4" stroke="#FFF" stroke-width="4" stroke-linecap="round" fill="none"/>
+        </g>
+
+        <rect x="-80" y="90" width="160" height="34" rx="8" fill="#4338CA" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="113" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">ALERT TYPES</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#6366F1" stroke-width="4"/>
+    </svg>

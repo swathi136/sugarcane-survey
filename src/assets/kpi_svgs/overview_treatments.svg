@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_overview_treatments" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#29144B"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_overview_treatments" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_overview_treatments" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#8B5CF6" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_overview_treatments)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_overview_treatments)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_overview_treatments)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <path d="M130,40 L170,40 M150,40 L150,70 L200,140 Q210,160 190,170 L110,170 Q90,160 100,140 L150,70" stroke="#8B5CF6" stroke-width="5" fill="none"/>
+        <path d="M110,145 Q150,130 190,145 L185,160 Q150,165 115,160 Z" fill="#8B5CF6" opacity="0.7"/>
+        <circle cx="140" cy="110" r="6" fill="#8B5CF6"/>
+        <circle cx="165" cy="95" r="4" fill="#8B5CF6"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+  </svg>

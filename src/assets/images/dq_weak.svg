@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_dq_weak" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#EF4444" stop-opacity="0.75"/>
+          <stop offset="100%" stop-color="#EF4444" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Stressed Underperforming Crop Soil Photo -->
+      <rect width="600" height="400" fill="#380808"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_dq_weak)"/>
+
+      <!-- 2. RED COLOR SYMBOL for Weak Columns Overlaid on Farmland -->
+      <g transform="translate(420, 180)">
+        <!-- Red Warning Folder & Exclamation -->
+        <path d="M-50,-40 L-10,-40 L0,-25 L50,-25 L50,45 L-50,45 Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="4"/>
+        <line x1="0" y1="-10" x2="0" y2="15" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="0" cy="30" r="5" fill="#FFFFFF"/>
+
+        <!-- Red Warning Shield -->
+        <circle cx="35" cy="-30" r="18" fill="#DC2626" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="35" y="-23" font-size="18" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">!</text>
+
+        <!-- Red Weak Columns Badge -->
+        <rect x="-80" y="75" width="160" height="34" rx="8" fill="#B91C1C" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="98" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">WEAK COLUMNS</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#EF4444" stroke-width="4"/>
+    </svg>

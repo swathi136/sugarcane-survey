@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_tc_height" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#043521"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_tc_height" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#10B981" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#10B981" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_tc_height" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#10B981" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_tc_height)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_tc_height)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_tc_height)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <rect x="80" y="100" width="30" height="60" rx="4" fill="#10B981" opacity="0.5"/>
+        <rect x="135" y="70" width="30" height="90" rx="4" fill="#10B981" opacity="0.75"/>
+        <rect x="190" y="40" width="30" height="120" rx="4" fill="#10B981"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#10B981" stroke-width="2" opacity="0.4"/>
+  </svg>

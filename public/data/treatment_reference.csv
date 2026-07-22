@@ -1,0 +1,25 @@
+location_id,treatment_id,plot_label,treatment_details
+L003,T1,A,100% SSL High Yield (CoE) Recommended Dose (NPK : 568:284:296 kg/ha)
+L003,T2,B,75% RDF + 25% N through Enriched Bio Compost @ equivalent basis as per SSL recommendation (NPK :450:213:225kg/ha)
+L003,T3,C,100% RDF through STCR -IPNS (Yield target = 200t/ha (NPK : 530:184:271kg/ha)
+L003,T4,D,100% RDF as per TNAU CPG +12.5 tons FYM/ha (NPK : 300:100:200kg/ha)
+L003,T5,E,100%RDF as per SSL Recommentation + 12.5 tons FYM/ha (NPK :450:213:225kg/ha)
+L002,T1,A,100% SSL High Yield (CoE) Recommended Dose (NPK : 568:284:296 kg/ha)
+L002,T2,B,75% RDF + 25% N through Enriched Bio Compost @ equivalent basis as per SSL recommendation (NPK :450:213:225kg/ha)
+L002,T3,C,100% RDF through STCR -IPNS (Yield target = 200t/ha (NPK : 530:184:271kg/ha)
+L002,T4,D,100% RDF as per TNAU CPG +12.5 tons FYM/ha (NPK : 300:100:200kg/ha)
+L002,T5,E,100%RDF as per SSL Recommentation + 12.5 tons FYM/ha (NPK :450:213:225kg/ha)
+L001,T1,,Absolute control
+L001,T2,,100% Recommended Dose of Fertilizer (RDF) as per Sakthi Sugars Recommendation + 12.5 tonsFarm Yar Manure (FYM)
+L001,T3,,100% Recommended Dose of Fertilizer (RDF) as per TNAU CPG + 12.5 tons FYM
+L001,T4,,75% RDF of N + 25% N through Bioslurry @N equivalent basis as per TNAU recommendation
+L001,T5,,75% RDF + 25% N through TreatedPressmud as per TNAU recommendation
+L001,T6,,75% RDF 25% N through EnrichedBio compost as per TNAU recommendation
+L001,T7,,75% RDF + 25% N through sugarcane trash compost as per TNAU recommendation
+L001,T8,,75% RDF of N + 25% N through Bioslurry @N equivalent basis as per SSL recommendation
+L001,T9,,75%RDF + 25% N through TreatedPressmud @N equivalent basis as per SSL recommendation
+L001,T10,,75%RDF + 25 % N through EnrichedBio compost @N equivalent basis as per SSL recommendation
+L001,T11,,75% RDF 25 % N through sugarcane trash compost @N equivalent basis as per SSL recommendation
+L001,T12,,100% RDF through STCR – IPNS (Yield target = 150 t/ha)
+L001,T13,,100% RDF through STCR – IPNS (Yield target 175 t/ha)
+L001,T14,,100% RDF through CoE + 12.5 tons FYM

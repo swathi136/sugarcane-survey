@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_bio_highest" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#053E1B"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_bio_highest" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#22C55E" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#22C55E" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_bio_highest" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#22C55E" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_bio_highest)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_bio_highest)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_bio_highest)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <path d="M60,160 L120,80 L160,110 L220,30" fill="none" stroke="#22C55E" stroke-width="6" stroke-linecap="round"/>
+        <polygon points="220,30 200,35 215,50" fill="#22C55E"/>
+        <circle cx="220" cy="30" r="8" fill="#22C55E"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#22C55E" stroke-width="2" opacity="0.4"/>
+  </svg>

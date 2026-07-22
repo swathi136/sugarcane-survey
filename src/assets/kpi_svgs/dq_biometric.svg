@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_dq_biometric" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0A244A"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_dq_biometric" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_dq_biometric" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#3B82F6" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_dq_biometric)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_dq_biometric)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_dq_biometric)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <ellipse cx="150" cy="55" rx="55" ry="18" fill="#3B82F6" opacity="0.9"/>
+        <path d="M95,55 L95,100 Q150,120 205,100 L205,55" fill="#3B82F6" opacity="0.6"/>
+        <path d="M95,100 L95,145 Q150,165 205,145 L205,100" fill="#3B82F6" opacity="0.4"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#3B82F6" stroke-width="2" opacity="0.4"/>
+  </svg>

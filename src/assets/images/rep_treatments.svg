@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_rep_treat" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Spraying Medicine/Treatment to Plants in Field Photo -->
+      <rect width="600" height="400" fill="#210F3A"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_rep_treat)"/>
+
+      <!-- 2. Medicine Spray Nozzle & Droplets Overlaid -->
+      <g transform="translate(420, 180)">
+        <!-- Sprayer Nozzle -->
+        <path d="M-15,-60 L15,-60 L25,-20 L-25,-20 Z" fill="#8B5CF6" stroke="#FFF" stroke-width="3"/>
+        <line x1="0" y1="-60" x2="0" y2="-100" stroke="#FFF" stroke-width="8" stroke-linecap="round"/>
+
+        <!-- Spray Mist Cone -->
+        <polygon points="0,-20 70,70 -70,70" fill="#A78BFA" opacity="0.45"/>
+        <circle cx="-30" cy="40" r="8" fill="#DDD6FE"/>
+        <circle cx="0" cy="55" r="10" fill="#FFF"/>
+        <circle cx="30" cy="35" r="7" fill="#DDD6FE"/>
+
+        <rect x="-85" y="85" width="170" height="34" rx="8" fill="#6D28D9" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="108" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">CROP SPRAYING</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#8B5CF6" stroke-width="4"/>
+    </svg>

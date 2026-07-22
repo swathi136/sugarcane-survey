@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_total" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#EF4444" stop-opacity="0.65"/>
+          <stop offset="60%" stop-color="#EF4444" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#EF4444" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Authentic Sugarcane Agricultural Land Photo Background -->
+      <rect width="600" height="400" fill="#2B0707"/>
+
+      <!-- 2. Dark Atmospheric Scrim Overlay for Readability -->
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_total)"/>
+
+      <!-- 3. Exact 3D Red Alert Bell Symbol Overlaid on Agricultural Farmland -->
+      <g transform="translate(420, 180)">
+        <circle r="110" fill="none" stroke="#EF4444" stroke-width="3" opacity="0.35"/>
+        <circle r="75" fill="none" stroke="#EF4444" stroke-width="4" opacity="0.6"/>
+
+        <path d="M0,-55 Q35,-55 35,15 L50,45 L-50,45 L-35,15 Q-35,-55 0,-55 Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="4"/>
+        <path d="M-18,55 Q0,75 18,55 Z" fill="#FFFFFF"/>
+        <circle cx="45" cy="-35" r="18" fill="#DC2626" stroke="#FFFFFF" stroke-width="3"/>
+        <text x="45" y="-28" font-size="20" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">!</text>
+
+        <rect x="-75" y="85" width="150" height="34" rx="17" fill="#DC2626" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="107" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">TOTAL ALERTS</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#EF4444" stroke-width="4"/>
+    </svg>

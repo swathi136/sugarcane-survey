@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_dq_strong" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#22C55E" stop-opacity="0.70"/>
+          <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Strong Healthy Sugarcane Stalk Field Photo -->
+      <rect width="600" height="400" fill="#043015"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_dq_strong)"/>
+
+      <!-- 2. GREEN COLOR SYMBOL for Strong Columns Overlaid on Farmland -->
+      <g transform="translate(420, 180)">
+        <!-- Green Rising 100% Column Pillar -->
+        <rect x="-45" y="-60" width="26" height="110" rx="6" fill="#22C55E" stroke="#FFF" stroke-width="3"/>
+        <rect x="-12" y="-90" width="26" height="140" rx="6" fill="#22C55E" stroke="#FFF" stroke-width="3"/>
+        <rect x="21" y="-110" width="26" height="160" rx="6" fill="#22C55E" stroke="#FFF" stroke-width="3"/>
+        <path d="M-55,-15 L-2, -95 L12, -75 L55, -125" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+        <!-- Green Strong Columns Badge -->
+        <rect x="-85" y="75" width="170" height="34" rx="8" fill="#15803D" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="98" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">STRONG COLUMNS</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#22C55E" stroke-width="4"/>
+    </svg>

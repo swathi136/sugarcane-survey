@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_rep_records" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3A2402"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_rep_records" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_rep_records" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#F59E0B" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_rep_records)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_rep_records)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_rep_records)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <path d="M85,70 L135,70 L150,85 L215,85 Q225,85 225,95 L225,160 Q225,170 215,170 L85,170 Q75,170 75,160 L75,80 Q75,70 85,70 Z" fill="#F59E0B" opacity="0.8"/>
+        <path d="M100,45 L150,45 L165,60 L200,60" fill="none" stroke="#F59E0B" stroke-width="4"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#F59E0B" stroke-width="2" opacity="0.4"/>
+  </svg>

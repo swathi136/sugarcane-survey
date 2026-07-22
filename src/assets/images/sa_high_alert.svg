@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_high" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#DC2626" stop-opacity="0.70"/>
+          <stop offset="60%" stop-color="#DC2626" stop-opacity="0.20"/>
+          <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Authentic Agricultural Drought Soil Photo Background -->
+      <rect width="600" height="400" fill="#380808"/>
+
+      <!-- 2. Dark Atmospheric Scrim Overlay for Readability -->
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_high)"/>
+
+      <!-- 3. Exact 3D Crimson High Priority Danger Shield Overlaid on Farmland -->
+      <g transform="translate(420, 180)">
+        <polygon points="0,-110 25,-40 -25,-40" fill="#F87171" opacity="0.35"/>
+        <path d="M0,-70 L60,-30 L60,30 Q0,85 0,85 Q0,85 -60,30 L-60,-30 Z" fill="#DC2626" stroke="#FFFFFF" stroke-width="5"/>
+        <line x1="0" y1="-30" x2="0" y2="15" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="0" cy="38" r="6" fill="#FFFFFF"/>
+
+        <rect x="-85" y="-40" width="12" height="80" rx="6" fill="#DC2626" stroke="#FFF" stroke-width="2"/>
+        <rect x="73" y="-40" width="12" height="80" rx="6" fill="#DC2626" stroke="#FFF" stroke-width="2"/>
+
+        <rect x="-85" y="95" width="170" height="34" rx="8" fill="#991B1B" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="118" font-size="15" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">HIGH PRIORITY</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#DC2626" stroke-width="4"/>
+    </svg>

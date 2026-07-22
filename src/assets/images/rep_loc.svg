@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_rep_loc" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Map Route Terrain Photo -->
+      <rect width="600" height="400" fill="#04243A"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_rep_loc)"/>
+
+      <!-- 2. Map Route with North (N) Compass Overlaid -->
+      <g transform="translate(420, 180)">
+        <!-- Compass Rose with "N" Indicator -->
+        <circle r="60" fill="#0284C7" opacity="0.9" stroke="#FFF" stroke-width="4"/>
+        <polygon points="0,-48 12,-8 0,0 -12,-8" fill="#EF4444"/>
+        <polygon points="0,48 12,8 0,0 -12,8" fill="#FFF"/>
+        <text x="0" y="-28" font-size="22" font-weight="900" fill="#FFF" text-anchor="middle" font-family="sans-serif">N</text>
+
+        <!-- Route Path Line -->
+        <path d="M-90,40 Q-40,-30 0,-10 T90,-40" fill="none" stroke="#38BDF8" stroke-width="6" stroke-dasharray="10 6"/>
+        <circle cx="-90" cy="40" r="10" fill="#EF4444" stroke="#FFF" stroke-width="3"/>
+        <circle cx="90" cy="-40" r="10" fill="#10B981" stroke="#FFF" stroke-width="3"/>
+
+        <!-- Locations Badge -->
+        <rect x="-85" y="80" width="170" height="34" rx="8" fill="#0369A1" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="103" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">MAP ROUTE (N)</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#0EA5E9" stroke-width="4"/>
+    </svg>

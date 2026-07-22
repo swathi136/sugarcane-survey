@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <linearGradient id="bg_bio3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#041A2E"/>
+          <stop offset="60%" stop-color="#0E4473"/>
+          <stop offset="100%" stop-color="#020E1A"/>
+        </linearGradient>
+        <radialGradient id="glow_bio3" cx="75%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="600" height="400" fill="url(#bg_bio3)"/>
+      <rect width="600" height="400" fill="url(#glow_bio3)"/>
+      <!-- Young shoot seedling sprout emerging -->
+      <g transform="translate(400, 120)">
+        <path d="M50,200 Q50,110 100,70 Q50,90 50,200 Z" fill="#38BDF8" opacity="0.85"/>
+        <path d="M50,200 Q50,130 0,100 Q40,110 50,200 Z" fill="#38BDF8" opacity="0.6"/>
+        <line x1="10" y1="200" x2="90" y2="200" stroke="#38BDF8" stroke-width="6" stroke-linecap="round"/>
+      </g>
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#38BDF8" stroke-width="4"/>
+    </svg>

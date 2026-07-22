@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_rep_rec" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Record Taking in Agricultural Land Photo -->
+      <rect width="600" height="400" fill="#362203"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_rep_rec)"/>
+
+      <!-- 2. Field Clipboard & Record Taking Symbol Overlaid -->
+      <g transform="translate(420, 180)">
+        <!-- Clipboard Board -->
+        <rect x="-55" y="-65" width="110" height="140" rx="10" fill="#F59E0B" stroke="#FFF" stroke-width="4"/>
+        <rect x="-25" y="-75" width="50" height="20" rx="4" fill="#FFF"/>
+        
+        <!-- Document Lines -->
+        <line x1="-35" y1="-30" x2="35" y2="-30" stroke="#FFF" stroke-width="5" stroke-linecap="round"/>
+        <line x1="-35" y1="-5" x2="25" y2="-5" stroke="#FFF" stroke-width="5" stroke-linecap="round"/>
+        <line x1="-35" y1="20" x2="35" y2="20" stroke="#FFF" stroke-width="5" stroke-linecap="round"/>
+        <path d="M20,40 L35,50 L55,15" stroke="#FFF" stroke-width="7" stroke-linecap="round" fill="none"/>
+
+        <rect x="-85" y="85" width="170" height="34" rx="8" fill="#B45309" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="108" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">FIELD RECORDS</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#F59E0B" stroke-width="4"/>
+    </svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <!-- Rich 2026 dark atmospheric background gradient -->
+      <linearGradient id="bg_ca_count" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#16173B"/>
+        <stop offset="65%" stop-color="#2F3175"/>
+        <stop offset="100%" stop-color="#050806"/>
+      </linearGradient>
+
+      <!-- Ambient radial lighting vignette -->
+      <radialGradient id="glow_ca_count" cx="75%" cy="35%" r="65%">
+        <stop offset="0%" stop-color="#6366F1" stop-opacity="0.45"/>
+        <stop offset="50%" stop-color="#6366F1" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#6366F1" stop-opacity="0.0"/>
+      </radialGradient>
+
+      <!-- Precision tech grid overlay -->
+      <pattern id="grid_ca_count" width="16" height="16" patternUnits="userSpaceOnUse">
+        <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#6366F1" stroke-width="0.5" opacity="0.09"/>
+      </pattern>
+    </defs>
+
+    <!-- Base Canvas -->
+    <rect width="300" height="200" fill="url(#bg_ca_count)"/>
+    <rect width="300" height="200" fill="url(#grid_ca_count)"/>
+    <rect width="300" height="200" fill="url(#glow_ca_count)"/>
+
+    <!-- Tailored Vector Scene Artwork -->
+    
+          <circle cx="210" cy="95" r="35" fill="#6366F1" opacity="0.7"/>
+        
+
+    <!-- Top Glow Rim Accent Line -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#6366F1" stroke-width="2.5" opacity="0.8"/>
+  </svg>

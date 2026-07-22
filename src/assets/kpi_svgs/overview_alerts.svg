@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="600" height="400">
+    <defs>
+      <linearGradient id="bg_overview_alerts" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3D0A0A"/>
+        <stop offset="60%" stop-color="#0A1810"/>
+        <stop offset="100%" stop-color="#050B08"/>
+      </linearGradient>
+      <radialGradient id="glow_overview_alerts" cx="80%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#EF4444" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#EF4444" stop-opacity="0.0"/>
+      </radialGradient>
+      <pattern id="grid_overview_alerts" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#EF4444" stroke-width="0.5" opacity="0.08"/>
+      </pattern>
+    </defs>
+
+    <!-- Full dark atmospheric card background -->
+    <rect width="300" height="200" fill="url(#bg_overview_alerts)"/>
+    
+    <!-- Subtle technical grid texture -->
+    <rect width="300" height="200" fill="url(#grid_overview_alerts)"/>
+
+    <!-- Ambient glow circle -->
+    <rect width="300" height="200" fill="url(#glow_overview_alerts)"/>
+
+    <!-- Right side vector artwork -->
+    <g transform="translate(60, 0)">
+      
+        <polygon points="150,25 220,150 80,150" fill="none" stroke="#EF4444" stroke-width="6"/>
+        <line x1="150" y1="65" x2="150" y2="110" stroke="#EF4444" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="150" cy="132" r="5" fill="#EF4444"/>
+      
+    </g>
+
+    <!-- Subtle framing lines -->
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#EF4444" stroke-width="2" opacity="0.4"/>
+  </svg>

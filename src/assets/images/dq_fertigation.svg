@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 400" width="600" height="400">
+      <defs>
+        <radialGradient id="glow_dq_fert" cx="72%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Technician Recording Fertigation Drip Readings Photo -->
+      <rect width="600" height="400" fill="#210F3A"/>
+      <rect width="600" height="400" fill="black" opacity="0.40"/>
+      <rect width="600" height="400" fill="url(#glow_dq_fert)"/>
+
+      <!-- 2. Fertigation Flow Meter Check Symbol Overlaid on Farmland -->
+      <g transform="translate(420, 180)">
+        <circle r="55" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="5"/>
+        <path d="M-30,15 Q0,-45 30,15 Z" fill="#DDD6FE"/>
+        <line x1="0" y1="15" x2="25" y2="-20" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="0" cy="15" r="7" fill="#FFFFFF"/>
+
+        <rect x="-85" y="75" width="170" height="34" rx="8" fill="#6D28D9" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="0" y="98" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif" letter-spacing="1">FERTIGATION LOG</text>
+      </g>
+
+      <line x1="0" y1="0" x2="600" y2="0" stroke="#8B5CF6" stroke-width="4"/>
+    </svg>
