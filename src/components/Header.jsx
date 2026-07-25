@@ -1,4 +1,4 @@
-import { Search, MapPin } from "lucide-react";
+import { Search, LogIn, LogOut, UserCheck } from "lucide-react";
 
 function Header({
   title,
@@ -8,7 +8,13 @@ function Header({
   setSelectedLocation,
   searchTerm,
   setSearchTerm,
-}) {
+  onLogin,
+  authSession,
+  onSignOut,
+})  {
+  const loggedInRole = authSession?.role || authSession?.user?.user_metadata?.role || "User";
+  const userEmail = authSession?.user?.email || "";
+
   return (
     <header className="top-header">
       <div>
@@ -38,6 +44,36 @@ function Header({
             </option>
           ))}
         </select>
+
+        {authSession ? (
+          <div className="user-profile-badge" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span className="logged-in-tag" style={{
+              fontSize: "12px",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              background: "#eef6f0",
+              color: "#15803d",
+              fontWeight: 600,
+              border: "1px solid rgba(22, 128, 61, 0.2)",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px"
+            }}>
+              <UserCheck size={14} />
+              {loggedInRole === "admin" ? "Admin" : "Student"}: {userEmail.split("@")[0] || "Logged In"}
+            </span>
+            <button className="login-btn logout-mode" onClick={onSignOut} title="Sign Out">
+              <LogOut size={16} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        ) : (
+          <button className="login-btn" onClick={onLogin}>
+            <LogIn size={18} />
+            <span>Login</span>
+          </button>
+        )}
+
       </div>
     </header>
   );

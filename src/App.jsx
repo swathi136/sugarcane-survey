@@ -1,6 +1,8 @@
 import ComparativeAnalysis from "./pages/ComparativeAnalysis";
 import DataQuality from "./pages/DataQuality";/*data-quality*/
 import { useEffect, useMemo, useState } from "react";
+import { X, Sprout, Mail, Lock, GraduationCap, ShieldCheck, Loader2, CheckCircle2, AlertCircle, MailCheck, KeyRound, UserPlus, LogIn, ArrowRight } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "./utils/supabaseClient";
 import "./App.css";
 
 import LoadingScreen from "./components/LoadingScreen";
@@ -24,6 +26,212 @@ function App() {
   const [activePage, setActivePage] = useState("overview");
   const [selectedLocation, setSelectedLocation] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
+  const [loginRole, setLoginRole] = useState("student");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState("");
+  const [authSession, setAuthSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authSuccess, setAuthSuccess] = useState("");
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setAuthSession(session);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthSession(session);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // 1. REGISTER HANDLER (Email + Password Registration)
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+
+    if (!regEmail || !regPassword) {
+      setAuthError("Please fill in both Email Address and Password.");
+      return;
+    }
+
+    if (regPassword.length < 6) {
+      setAuthError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setAuthError("Passwords do not match. Please re-enter.");
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      if (!isSupabaseConfigured) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        setAuthSuccess(`Registered ${regEmail}! Switch to Sign In to log in.`);
+        setEmail(regEmail);
+        setPassword(regPassword);
+        setTimeout(() => {
+          setAuthMode("login");
+          setAuthSuccess("");
+        }, 1200);
+        return;
+      }
+
+      // Register user account in Supabase Database
+      const redirectUrl = window.location.origin + window.location.pathname;
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: { role: loginRole },
+        },
+      });
+
+      if (signUpError) {
+        setAuthError(signUpError.message || "Failed to register account.");
+      } else {
+        setAuthSuccess(`Account registered for ${regEmail}! A confirmation email has been sent to your inbox.`);
+        setEmail(regEmail);
+        setPassword(regPassword);
+        setTimeout(() => {
+          setAuthMode("login");
+        }, 1500);
+      }
+    } catch (err) {
+      setAuthError(err?.message || "An error occurred during registration.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // 2. LOGIN HANDLER (Enforces Email Confirmation Check)
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+    setUnconfirmedEmail("");
+
+    if (!email || !password) {
+      setAuthError("Please fill in both Email Address and Password.");
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      if (!isSupabaseConfigured) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const demoUser = {
+          user: { id: "demo-user-1", email: email },
+          role: loginRole,
+        };
+        setAuthSession(demoUser);
+        setAuthSuccess(`Logged in successfully as ${loginRole === "student" ? "Student" : "Admin"}!`);
+        setTimeout(() => {
+          setShowLogin(false);
+          setAuthSuccess("");
+          setEmail("");
+          setPassword("");
+        }, 1000);
+        return;
+      }
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (signInError) {
+        const msg = signInError.message?.toLowerCase() || "";
+        if (msg.includes("confirm") || msg.includes("not confirmed")) {
+          setUnconfirmedEmail(email);
+          setAuthError("Email Confirmation Required! Please check your email inbox and click 'Confirm your email' / 'Yes it is me' before logging in.");
+        } else {
+          setAuthError(signInError.message || "Invalid login credentials. Please check your email and password.");
+        }
+        return;
+      }
+
+      // Check if user session email is confirmed
+      if (data?.user && !data.user.email_confirmed_at && data.user.confirmation_sent_at) {
+        setUnconfirmedEmail(email);
+        setAuthError("Email Confirmation Required! Please check your email inbox and click the confirmation link before logging in.");
+        return;
+      }
+
+      // Email is confirmed and login successful!
+      setAuthSession({ ...data.session, role: loginRole, user: data.user || data.session?.user });
+      setAuthSuccess(`Login successful! Logged in as ${loginRole === "student" ? "Student" : "Admin"}.`);
+      setTimeout(() => {
+        setShowLogin(false);
+        setAuthSuccess("");
+        setEmail("");
+        setPassword("");
+      }, 1000);
+    } catch (err) {
+      setAuthError(err?.message || "Failed to log in via Supabase.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // 3. RESEND CONFIRMATION EMAIL HANDLER
+  const handleResendConfirmation = async () => {
+    const targetEmail = unconfirmedEmail || email || regEmail;
+    if (!targetEmail) return;
+
+    setAuthError("");
+    setAuthSuccess("");
+    setAuthLoading(true);
+
+    try {
+      if (!isSupabaseConfigured) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        setAuthSuccess(`Confirmation email resent to ${targetEmail}!`);
+        return;
+      }
+
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: targetEmail,
+      });
+
+      if (resendError) {
+        setAuthError(resendError.message || "Failed to resend confirmation email.");
+      } else {
+        setAuthSuccess(`Confirmation email resent to ${targetEmail}! Please check your inbox.`);
+      }
+    } catch (err) {
+      setAuthError(err?.message || "Failed to resend email.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    setAuthSession(null);
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -196,9 +404,356 @@ function App() {
           setSelectedLocation={setSelectedLocation}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
+          onLogin={() => {
+            setAuthError("");
+            setAuthSuccess("");
+            setShowLogin(true);
+          }}
+          authSession={authSession}
+          onSignOut={handleSignOut}
         />
 
         {renderPage()}
+        {showLogin && (
+          <div className="login-overlay" onClick={() => setShowLogin(false)}>
+            <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+              
+              <button
+                type="button"
+                className="close-x-btn"
+                onClick={() => setShowLogin(false)}
+                title="Close modal"
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Main Auth Flow Mode Selector: Sign In vs Register */}
+              <div className="auth-mode-selector" style={{
+                display: "flex",
+                gap: "12px",
+                borderBottom: "1px solid #e2e8f0",
+                paddingBottom: "12px",
+                marginBottom: "4px"
+              }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthError("");
+                    setAuthSuccess("");
+                    setUnconfirmedEmail("");
+                    setAuthMode("login");
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: authMode === "login" ? "#eef6f0" : "transparent",
+                    color: authMode === "login" ? "#14532d" : "#64748b",
+                    fontWeight: authMode === "login" ? 700 : 500,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <LogIn size={15} />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthError("");
+                    setAuthSuccess("");
+                    setUnconfirmedEmail("");
+                    setAuthMode("register");
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: authMode === "register" ? "#eef6f0" : "transparent",
+                    color: authMode === "register" ? "#14532d" : "#64748b",
+                    fontWeight: authMode === "register" ? 700 : 500,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <UserPlus size={15} />
+                  <span>Register</span>
+                </button>
+              </div>
+
+              {/* Header section based on mode */}
+              <div className="login-header">
+                <div className={`login-icon-badge ${loginRole === "admin" ? "admin-badge" : "student-badge"}`}>
+                  {loginRole === "student" ? (
+                    <GraduationCap size={26} />
+                  ) : (
+                    <ShieldCheck size={26} />
+                  )}
+                </div>
+                <h2>
+                  {authMode === "register"
+                    ? `Register ${loginRole === "student" ? "Student" : "Admin"}`
+                    : `${loginRole === "student" ? "Student" : "Admin"} Login`}
+                </h2>
+                <p className="login-subtitle">
+                  {authMode === "register"
+                    ? "Create an account with Email & Password"
+                    : loginRole === "student"
+                    ? "Access Student Biometric & Survey Portal"
+                    : "Administrator Controls & Field Data Management"}
+                </p>
+              </div>
+
+              {/* Role Selector Tabs */}
+              <div className="login-role-tabs">
+                <button
+                  type="button"
+                  className={`role-tab ${loginRole === "student" ? "active" : ""}`}
+                  onClick={() => {
+                    setAuthError("");
+                    setLoginRole("student");
+                  }}
+                >
+                  <GraduationCap size={16} />
+                  <span>Student</span>
+                </button>
+                <button
+                  type="button"
+                  className={`role-tab ${loginRole === "admin" ? "active" : ""}`}
+                  onClick={() => {
+                    setAuthError("");
+                    setLoginRole("admin");
+                  }}
+                >
+                  <ShieldCheck size={16} />
+                  <span>Admin</span>
+                </button>
+              </div>
+
+              {/* Alerts */}
+              {authError && (
+                <div className="login-alert error-alert" style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#991b1b",
+                  fontSize: "13px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <AlertCircle size={16} style={{ shrink: 0 }} />
+                    <span>{authError}</span>
+                  </div>
+                  {unconfirmedEmail && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      style={{
+                        alignSelf: "flex-start",
+                        marginTop: "4px",
+                        padding: "4px 10px",
+                        background: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer"
+                      }}
+                    >
+                      Resend Confirmation Email
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {authSuccess && (
+                <div className="login-alert success-alert" style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  color: "#166534",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}>
+                  <CheckCircle2 size={16} style={{ shrink: 0 }} />
+                  <span>{authSuccess}</span>
+                </div>
+              )}
+
+              {/* VIEW 1: SIGN IN FORM */}
+              {authMode === "login" && (
+                <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className="login-field-group">
+                    <label className="login-input-label" htmlFor="login-email">
+                      {loginRole === "student" ? "Student Email / ID" : "Admin Username / Email"}
+                    </label>
+                    <div className="login-input-wrapper">
+                      <Mail size={18} className="login-field-icon" />
+                      <input
+                        id="login-email"
+                        type="text"
+                        placeholder={loginRole === "student" ? "Enter Student ID / Email" : "Enter Admin Username / Email"}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="login-field-group">
+                    <label className="login-input-label" htmlFor="login-password">Password</label>
+                    <div className="login-input-wrapper">
+                      <Lock size={18} className="login-field-icon" />
+                      <input
+                        id="login-password"
+                        type="password"
+                        placeholder="Enter password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className={`login-submit-btn ${loginRole === "admin" ? "admin-submit" : "student-submit"}`}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                  >
+                    {authLoading ? (
+                      <>
+                        <Loader2 size={18} className="spin-loader" style={{ animation: "spin 1s linear infinite" }} />
+                        <span>Logging in...</span>
+                      </>
+                    ) : (
+                      <span>{loginRole === "student" ? "Login as Student" : "Login as Admin"}</span>
+                    )}
+                  </button>
+
+                  <div style={{ textAlign: "center", fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+                    Don't have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthError("");
+                        setAuthMode("register");
+                      }}
+                      style={{ background: "none", border: "none", color: "#16a34a", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      Register here
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* VIEW 2: REGISTER FORM (Enter Email & Password) */}
+              {authMode === "register" && (
+                <form onSubmit={handleRegisterSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className="login-field-group">
+                    <label className="login-input-label" htmlFor="reg-email">
+                      {loginRole === "student" ? "Student Email Address" : "Admin Email Address"}
+                    </label>
+                    <div className="login-input-wrapper">
+                      <Mail size={18} className="login-field-icon" />
+                      <input
+                        id="reg-email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="login-field-group">
+                    <label className="login-input-label" htmlFor="reg-password">Create Password</label>
+                    <div className="login-input-wrapper">
+                      <Lock size={18} className="login-field-icon" />
+                      <input
+                        id="reg-password"
+                        type="password"
+                        placeholder="Create a password"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="login-field-group">
+                    <label className="login-input-label" htmlFor="reg-confirm-password">Confirm Password</label>
+                    <div className="login-input-wrapper">
+                      <Lock size={18} className="login-field-icon" />
+                      <input
+                        id="reg-confirm-password"
+                        type="password"
+                        placeholder="Re-enter password"
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className={`login-submit-btn ${loginRole === "admin" ? "admin-submit" : "student-submit"}`}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                  >
+                    {authLoading ? (
+                      <>
+                        <Loader2 size={18} className="spin-loader" style={{ animation: "spin 1s linear infinite" }} />
+                        <span>Registering Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={18} />
+                        <span>Register Account</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div style={{ textAlign: "center", fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthError("");
+                        setAuthMode("login");
+                      }}
+                      style={{ background: "none", border: "none", color: "#16a34a", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setShowLogin(false)}
+              >
+                Close
+              </button>
+
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
