@@ -19,6 +19,8 @@ import TreatmentComparison from "./pages/TreatmentComparison";
 import FertigationTracking from "./pages/FertigationTracking";
 import SmartAlerts from "./pages/SmartAlerts";
 import Reports from "./pages/Reports";
+import StudentDataEntry from "./pages/StudentDataEntry";
+import AdminApprovalPortal from "./pages/AdminApprovalPortal";
 import LandingPage from "./components/LandingPage";
 
 function App() {
@@ -39,6 +41,76 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
+
+  const [submissionsList, setSubmissionsList] = useState([]);
+
+  const handleSubmitNewEntry = (newEntry) => {
+    setSubmissionsList((prev) => [
+      { ...newEntry, status: "PENDING" },
+      ...prev,
+    ]);
+  };
+
+  const handleApproveSubmission = (id) => {
+    setSubmissionsList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: "APPROVED" } : s))
+    );
+
+    const approvedItem = submissionsList.find((s) => s.id === id);
+    if (approvedItem && data) {
+      const newBioObs = {
+        observation_id: `BIO_NEW_${Date.now()}`,
+        location_id: approvedItem.locationId,
+        location_name: approvedItem.locationName,
+        plot_id: approvedItem.plotName,
+        plot_name: approvedItem.plotName,
+        treatment_id: approvedItem.treatment,
+        observation_day: parseInt(approvedItem.obsDay, 10) || 30,
+        date_of_observation: approvedItem.obsDate || approvedItem.date,
+        plant_height: parseFloat(approvedItem.plantHeight) || 0,
+        tiller_count: parseInt(approvedItem.numTillers, 10) || 0,
+        leaf_count: parseInt(approvedItem.numLeaves, 10) || 0,
+        leaf_height: parseFloat(approvedItem.leafLength) || 0,
+        leaf_width: parseFloat(approvedItem.leafBreadth) || 0,
+      };
+
+      const newFertSched = {
+        schedule_id: `FERT_NEW_${Date.now()}`,
+        location_id: approvedItem.locationId,
+        location_name: approvedItem.locationName,
+        plot_id: approvedItem.plotName,
+        treatment_id: approvedItem.treatment,
+        observation_day: parseInt(approvedItem.obsDay, 10) || 30,
+        date_of_observation: approvedItem.fertDate || approvedItem.date,
+        white_potash_kg: parseFloat(approvedItem.whitePotashKg) || 0,
+        n_kg: parseFloat(approvedItem.nKg) || 0,
+        p2o5_kg: parseFloat(approvedItem.p2o5Kg) || 0,
+        k2o_kg: parseFloat(approvedItem.k2oKg) || 0,
+        mn_mixture: parseFloat(approvedItem.mnMixture) || 0,
+        urea_kg: parseFloat(approvedItem.ureaKg) || 0,
+        map_kg: parseFloat(approvedItem.mapKg) || 0,
+        dap_kg: parseFloat(approvedItem.dapKg) || 0,
+      };
+
+      setData((prevData) => ({
+        ...prevData,
+        biometricObservations: [newBioObs, ...(prevData?.biometricObservations || [])],
+        fertigationSchedule: [newFertSched, ...(prevData?.fertigationSchedule || [])],
+      }));
+    }
+  };
+
+  const handleRejectSubmission = (id) => {
+    setSubmissionsList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: "REJECTED" } : s))
+    );
+  };
+
+  const handleUpdateSubmission = (id, updatedFields) => {
+    setSubmissionsList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s))
+    );
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -139,17 +211,20 @@ function App() {
     try {
       if (!isSupabaseConfigured) {
         await new Promise((resolve) => setTimeout(resolve, 600));
+        const isAdmin = loginRole === "admin" || email.toLowerCase().includes("admin");
         const demoUser = {
           user: { id: "demo-user-1", email: email },
-          role: loginRole,
+          role: isAdmin ? "admin" : "student",
         };
         setAuthSession(demoUser);
-        setAuthSuccess(`Logged in successfully as ${loginRole === "student" ? "Student" : "Admin"}!`);
+        setAuthSuccess(`Logged in successfully as ${isAdmin ? "Admin" : "Student"}! Redirecting...`);
         setTimeout(() => {
           setShowLogin(false);
           setAuthSuccess("");
           setEmail("");
           setPassword("");
+
+          setView(isAdmin ? "admin-approval" : "data-entry");
         }, 1000);
         return;
       }
@@ -170,21 +245,22 @@ function App() {
         return;
       }
 
-      // Check if user session email is confirmed
       if (data?.user && !data.user.email_confirmed_at && data.user.confirmation_sent_at) {
         setUnconfirmedEmail(email);
         setAuthError("Email Confirmation Required! Please check your email inbox and click the confirmation link before logging in.");
         return;
       }
 
-      // Email is confirmed and login successful!
-      setAuthSession({ ...data.session, role: loginRole, user: data.user || data.session?.user });
-      setAuthSuccess(`Login successful! Logged in as ${loginRole === "student" ? "Student" : "Admin"}.`);
+      const isAdmin = loginRole === "admin" || email.toLowerCase().includes("admin");
+      setAuthSession({ ...data.session, role: isAdmin ? "admin" : "student", user: data.user || data.session?.user });
+      setAuthSuccess(`Login successful! Redirecting...`);
       setTimeout(() => {
         setShowLogin(false);
         setAuthSuccess("");
         setEmail("");
         setPassword("");
+
+        setView(isAdmin ? "admin-approval" : "data-entry");
       }, 1000);
     } catch (err) {
       setAuthError(err?.message || "Failed to log in via Supabase.");
@@ -316,6 +392,11 @@ function App() {
         subtitle:
           "Monthly summary reports and downloadable project documentation.",
       },
+      "student-data-entry": {
+        title: "Student Field Data Entry Portal",
+        subtitle:
+          "Field data collection for Athani (and all plots) for Biometric Plant Growth and Fertigation Schedules.",
+      },
     };
 
     return info[activePage] || info.overview;
@@ -371,6 +452,32 @@ function App() {
 
   if (view === "landing") {
     return <LandingPage onViewDashboard={() => setView("dashboard")} />;
+  }
+
+  if (view === "data-entry") {
+    return (
+      <StudentDataEntry
+        authSession={authSession}
+        onBackToDashboard={() => setView("dashboard")}
+        onBackToLanding={() => setView("landing")}
+        onSignOut={handleSignOut}
+        onSubmitNewEntry={handleSubmitNewEntry}
+      />
+    );
+  }
+
+  if (view === "admin-approval") {
+    return (
+      <AdminApprovalPortal
+        authSession={authSession}
+        submissions={submissionsList}
+        onApproveSubmission={handleApproveSubmission}
+        onRejectSubmission={handleRejectSubmission}
+        onUpdateSubmission={handleUpdateSubmission}
+        onBackToDashboard={() => setView("dashboard")}
+        onSignOut={handleSignOut}
+      />
+    );
   }
 
   if (loading) {
