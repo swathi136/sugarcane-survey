@@ -59,7 +59,7 @@ const menuItems = [
   },
 ];
 
-function Sidebar({ activePage, setActivePage, onBackToLanding }) {
+function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -105,7 +105,13 @@ function Sidebar({ activePage, setActivePage, onBackToLanding }) {
             <button
               key={item.id}
               className={`nav-item ${activePage === item.id ? "active" : ""}`}
-              onClick={() => setActivePage(item.id)}
+              onClick={() => {
+                if (item.id === "student-data-entry" && onOpenDataEntry) {
+                  onOpenDataEntry();
+                } else {
+                  setActivePage(item.id);
+                }
+              }}
             >
               <Icon size={18} />
               {item.label}
