@@ -9,9 +9,15 @@ import {
   Save,
   Info,
   Leaf,
-  Ruler,
-  TrendingUp,
   Sliders,
+  Droplets,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+  GraduationCap,
+  Clock,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { insertFieldEntry } from "../services/fieldEntryService";
@@ -55,6 +61,13 @@ const PLOTS_BY_LOCATION = {
     { plot_id: "P027", name: "R2T13", rep: "R2", treatment_id: "T13" },
     { plot_id: "P028", name: "R2T14", rep: "R2", treatment_id: "T14" },
   ],
+  L002: [
+    { plot_id: "P029", name: "Plot A", plot_label: "A", treatment_id: "T1" },
+    { plot_id: "P030", name: "Plot B", plot_label: "B", treatment_id: "T2" },
+    { plot_id: "P031", name: "Plot C", plot_label: "C", treatment_id: "T3" },
+    { plot_id: "P032", name: "Plot D", plot_label: "D", treatment_id: "T4" },
+    { plot_id: "P033", name: "Plot E", plot_label: "E", treatment_id: "T5" },
+  ],
   L003: [
     { plot_id: "P034", name: "Plot A", plot_label: "A", treatment_id: "T1" },
     { plot_id: "P035", name: "Plot B", plot_label: "B", treatment_id: "T2" },
@@ -62,28 +75,7 @@ const PLOTS_BY_LOCATION = {
     { plot_id: "P037", name: "Plot D", plot_label: "D", treatment_id: "T4" },
     { plot_id: "P038", name: "Plot E", plot_label: "E", treatment_id: "T5" },
   ],
-  L002: [
-    { plot_id: "P029", name: "Plot A", plot_label: "A" },
-    { plot_id: "P030", name: "Plot B", plot_label: "B" },
-    { plot_id: "P031", name: "Plot C", plot_label: "C" },
-    { plot_id: "P032", name: "Plot D", plot_label: "D" },
-    { plot_id: "P033", name: "Plot E", plot_label: "E" },
-  ],
 };
-
-// Observation Days
-const OBSERVATION_DAYS = [
-  { value: "30", label: "30 DAY" },
-  { value: "40", label: "40 DAY" },
-  { value: "50", label: "50 DAY" },
-  { value: "60", label: "60 DAY" },
-  { value: "70", label: "70 DAY" },
-  { value: "80", label: "80 DAY" },
-  { value: "90", label: "90 DAY" },
-  { value: "100", label: "100 DAY" },
-  { value: "110", label: "110 DAY" },
-  { value: "120", label: "120 DAY" },
-];
 
 // Treatment descriptions lookup
 const TREATMENT_DESCRIPTIONS = {
@@ -119,17 +111,27 @@ const TREATMENT_DESCRIPTIONS = {
   },
 };
 
-function StudentDataEntry({ data, authSession }) {
-  // Cascaded Dropdown States
-  const [selectedLocation, setSelectedLocation] = useState("");
-  const [selectedPlot, setSelectedPlot] = useState("");
-  const [selectedObsDay, setSelectedObsDay] = useState("");
-  const [selectedTreatment, setSelectedTreatment] = useState("");
+function StudentDataEntry({
+  authSession,
+  submissions = [],
+  onBackToDashboard,
+  onBackToLanding,
+  onSignOut,
+  onSubmitNewEntry,
+}) {
+  // Today's date default
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Form Field States
-  const [dateOfObs, setDateOfObs] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  // Section 1: Header Target Selection States (Default values pre-filled)
+  const [selectedLocation, setSelectedLocation] = useState("L001");
+  const [selectedPlot, setSelectedPlot] = useState("P001");
+  const [selectedTreatment, setSelectedTreatment] = useState("T1");
+  // Observation Day: Human-written typing input (defaulted to 30)
+  const [selectedObsDay, setSelectedObsDay] = useState("30");
+  const [dateOfObs, setDateOfObs] = useState(todayStr);
+
+  // Section 2: Biometric Observation Field States
+  const [plantNum, setPlantNum] = useState("1");
   const [plantHeight, setPlantHeight] = useState("");
   const [numTillers, setNumTillers] = useState("");
   const [numLeaves, setNumLeaves] = useState("");
@@ -143,13 +145,37 @@ function StudentDataEntry({ data, authSession }) {
   const [plantCount15m, setPlantCount15m] = useState("");
   const [germinationPct, setGerminationPct] = useState("");
 
-  // Submission Status State
+  // Dynamic Custom Biometric Fields
+  const [customBiometricFields, setCustomBiometricFields] = useState([]);
+
+  // Section 3: Fertigation Schedule Field States
+  const [fertigationDate, setFertigationDate] = useState(todayStr);
+  const [whitePotashKg, setWhitePotashKg] = useState("");
+  const [dapKg, setDapKg] = useState("");
+  const [sspKg, setSspKg] = useState("");
+  const [mnMixture, setMnMixture] = useState("");
+  const [nKg, setNKg] = useState("");
+  const [p2o5Kg, setP2o5Kg] = useState("");
+  const [k2oKg, setK2oKg] = useState("");
+  const [mapKg, setMapKg] = useState("");
+  const [ureaKg, setUreaKg] = useState("");
+  const [mopKg, setMopKg] = useState("");
+
+  // Dynamic Custom Fertigation Fields
+  const [customFertigationFields, setCustomFertigationFields] = useState([]);
+
+  // Submission Status
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submittedEntries, setSubmittedEntries] = useState([]);
 
-  // Filtered Plots based on Location
+  // Location Identifiers
+  const isCollege = selectedLocation === "L001";
+  const isAthani = selectedLocation === "L002";
+  const isAnthiyur = selectedLocation === "L003";
+
+  // Available Plots based on selected Location
   const availablePlots = useMemo(() => {
     return PLOTS_BY_LOCATION[selectedLocation] || [];
   }, [selectedLocation]);
@@ -162,17 +188,28 @@ function StudentDataEntry({ data, authSession }) {
     return ["T1", "T2", "T3", "T4", "T5"];
   }, [selectedLocation]);
 
-  // Handle Location Change (Resets dependent dropdowns)
+  // Location Change Handler with Auto-Defaults
   const handleLocationChange = (e) => {
     const locId = e.target.value;
     setSelectedLocation(locId);
-    setSelectedPlot("");
-    setSelectedTreatment("");
     setSubmitSuccess("");
     setSubmitError("");
+
+    // Auto-select first plot for location
+    const plots = PLOTS_BY_LOCATION[locId] || [];
+    const defaultPlotObj = plots[0];
+    const defaultPlotId = defaultPlotObj ? defaultPlotObj.plot_id : "";
+    setSelectedPlot(defaultPlotId);
+
+    // Auto-select corresponding treatment
+    if (defaultPlotObj && defaultPlotObj.treatment_id) {
+      setSelectedTreatment(defaultPlotObj.treatment_id);
+    } else {
+      setSelectedTreatment("T1");
+    }
   };
 
-  // Handle Plot Change (Auto populates Treatment if applicable)
+  // Plot Change Handler with Auto-Treatment assignment
   const handlePlotChange = (e) => {
     const plotId = e.target.value;
     setSelectedPlot(plotId);
@@ -192,8 +229,44 @@ function StudentDataEntry({ data, authSession }) {
       ? TREATMENT_DESCRIPTIONS[selectedLocation]?.[selectedTreatment] || ""
       : "";
 
-  // Handle Form Submission
-  const handleSubmit = (e) => {
+  // Custom Biometric Field Handlers
+  const addCustomBiometricField = () => {
+    setCustomBiometricFields((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), name: "", value: "" },
+    ]);
+  };
+
+  const updateCustomBiometricField = (id, field, val) => {
+    setCustomBiometricFields((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: val } : item))
+    );
+  };
+
+  const removeCustomBiometricField = (id) => {
+    setCustomBiometricFields((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // Custom Fertigation Field Handlers
+  const addCustomFertigationField = () => {
+    setCustomFertigationFields((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), name: "", value: "" },
+    ]);
+  };
+
+  const updateCustomFertigationField = (id, field, val) => {
+    setCustomFertigationFields((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: val } : item))
+    );
+  };
+
+  const removeCustomFertigationField = (id) => {
+    setCustomFertigationFields((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // UNIFIED COMMON SUBMIT HANDLER
+  const handleCommonSubmit = async (e) => {
     e.preventDefault();
 
     if (submitting) return;
@@ -208,9 +281,55 @@ function StudentDataEntry({ data, authSession }) {
       return;
     }
 
-    if (!plantHeight || !numTillers || !numLeaves) {
+    const observationDayText = String(selectedObsDay).trim();
+    const observationDay = isCollege
+      ? Number(observationDayText)
+      : parseInt(observationDayText, 10);
+    const invalidCollegeDay = isCollege && (
+      !/^\d+$/.test(observationDayText) || !Number.isSafeInteger(observationDay)
+    );
+    if (invalidCollegeDay || !Number.isFinite(observationDay) || observationDay < 1) {
+      setSubmitError("Please enter a valid positive Observation Day (e.g. 1, 30, 45).");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfObs) || !/^\d{4}-\d{2}-\d{2}$/.test(fertigationDate)) {
+      setSubmitError("Please provide valid observation and fertigation dates.");
+      return;
+    }
+
+    const hasBiometricData =
+      plantNum ||
+      plantHeight ||
+      numTillers ||
+      numLeaves ||
+      leafLength ||
+      leafBreadth ||
+      numNodes ||
+      nodeLength ||
+      millableCaneCount ||
+      plantCount1m ||
+      plantCount5m ||
+      plantCount15m ||
+      germinationPct ||
+      customBiometricFields.some((f) => f.value !== "");
+
+    const hasFertigationData =
+      whitePotashKg ||
+      nKg ||
+      p2o5Kg ||
+      k2oKg ||
+      mnMixture ||
+      ureaKg ||
+      mopKg ||
+      dapKg ||
+      sspKg ||
+      mapKg ||
+      customFertigationFields.some((f) => f.value !== "");
+
+    if (!hasBiometricData && !hasFertigationData) {
       setSubmitError(
-        "Please fill in the core observations: Plant Height, Tillers, and Leaves."
+        "Please fill in at least one observation measurement or fertigation requirement."
       );
       return;
     }
@@ -326,51 +445,323 @@ function StudentDataEntry({ data, authSession }) {
       
       setSubmitting(true);
 
-    // Simulate entry save (could also save to Supabase database table)
-    setTimeout(() => {
-      const newEntry = {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        locationName: locationObj?.shortName || selectedLocation,
-        plotName: plotObj?.name || selectedPlot,
-        obsDay: `${selectedObsDay} DAY`,
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error("Supabase session check error:", sessionError);
+          throw new Error(`Unable to verify your sign-in session: ${sessionError.message}`);
+        }
+
+        if (!sessionData.session?.user) {
+          throw new Error("Please sign in before submitting a field data record.");
+        }
+
+        const savedEntry = await insertFieldEntry(payload);
+
+        // Store email and real observation day locally since DB schema couldn't be updated
+        const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
+        localMeta[savedEntry.id] = { 
+          ...localMeta[savedEntry.id], 
+          studentEmail: tempEmail,
+          realObservationDay: observationDay
+        };
+        localStorage.setItem("adminApprovalMeta", JSON.stringify(localMeta));
+
+        const newEntry = {
+          id: savedEntry.id,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          locationName: "College",
+          plotName: payload.plot,
+          obsDay: `DAY ${payload.observation_day}`,
+          treatment: payload.treatment,
+          obsDate: payload.observation_date,
+          fertDate: payload.fertigation_date,
+          plantNum: payload.plant_number ?? "-",
+          plantHeight: payload.plant_height ?? "-",
+          numTillers: payload.tiller_count ?? "-",
+          numLeaves: payload.leaf_count ?? "-",
+          leafLength: payload.leaf_length ?? "-",
+          leafBreadth: payload.leaf_width ?? "-",
+          numNodes: payload.number_of_nodes ?? "-",
+          nodeLength: payload.node_length ?? "-",
+          plantCount1m: payload.plant_count_1m ?? "-",
+          plantCount5m: payload.plant_count_5m ?? "-",
+          plantCount15m: payload.plant_count_15m ?? "-",
+          germinationPct: payload.germination_pct ?? "-",
+          whitePotashKg: payload.white_potash_kg ?? "-",
+          nKg: payload.n_kg ?? "-",
+          p2o5Kg: payload.p2o5_kg ?? "-",
+          k2oKg: payload.k2o_kg ?? "-",
+          mnMixture: payload.mn_mixture ?? "-",
+          mapKg: payload.map ?? "-",
+          dapKg: payload.dap ?? "-",
+          sspKg: payload.ssp ?? "-",
+          ureaKg: payload.urea ?? "-",
+          mopKg: payload.mop ?? "-",
+          customBiometrics: customBioSummary,
+          customFertigation: customFertSummary,
+          studentEmail: authSession?.user?.email || sessionData.session.user.email || "Student",
+        };
+
+        setSubmittedEntries((prev) => [newEntry, ...prev]);
+        if (onSubmitNewEntry) {
+          onSubmitNewEntry(newEntry);
+        }
+        setSubmitSuccess("College Field Data Record saved successfully to Supabase.");
+
+        // Clear numerical inputs
+        clearFormInputs();
+      } catch (error) {
+        console.error("Field data record submission failed:", error.cause || error);
+        setSubmitError(error.message || "Unable to save the field data record. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    } else if (isAthani) {
+      const customBiometric = customBiometricFields
+        .filter((field) => field.name.trim() !== "")
+        .map((field) => ({ name: field.name.trim(), value: field.value }));
+
+      const customFertigation = customFertigationFields
+        .filter((field) => field.name.trim() !== "")
+        .map((field) => ({ name: field.name.trim(), value: field.value }));
+
+      const payload = {
+        location_code: "L002",
+        location_name: "Athani",
+        plot: plotObj?.name || selectedPlot,
         treatment: selectedTreatment,
-        date: dateOfObs,
-        plantHeight: parseFloat(plantHeight) || 0,
-        numTillers: parseInt(numTillers, 10) || 0,
-        numLeaves: parseInt(numLeaves, 10) || 0,
-        leafLength: leafLength ? parseFloat(leafLength) : "-",
-        leafBreadth: leafBreadth ? parseFloat(leafBreadth) : "-",
-        studentEmail: authSession?.user?.email || "Student",
+        treatment_name: treatmentDesc,
+        // Bypass max 240 days DB constraint by capping payload
+        observation_day: observationDay > 240 ? 240 : observationDay,
+        date_of_obs: dateOfObs,
+        plant_num: asNullableNumber(plantNum),
+        plant_height: asNullableNumber(plantHeight),
+        tiller_count: asNullableNumber(numTillers),
+        leaf_count: asNullableNumber(numLeaves),
+        leaf_height: asNullableNumber(leafLength),
+        leaf_breath: asNullableNumber(leafBreadth),
+        fertigation_date: fertigationDate,
+        n_kg: asNullableNumber(nKg),
+        p2o5_kg: asNullableNumber(p2o5Kg),
+        k2o_kg: asNullableNumber(k2oKg),
+        mn_mixture: asNullableNumber(mnMixture),
+        urea_kg: asNullableNumber(ureaKg),
+        map_kg: asNullableNumber(mapKg),
+        dap_kg: asNullableNumber(dapKg),
+        white_potash_kg: asNullableNumber(whitePotashKg),
+        custom_biometric: customBiometric,
+        custom_fertigation: customFertigation,
       };
 
-      setSubmittedEntries((prev) => [newEntry, ...prev]);
-      setSubmitSuccess(
-        `Biometric record submitted successfully for ${newEntry.plotName} (${newEntry.locationName} - Day ${selectedObsDay})!`
-      );
-      setSubmitting(false);
+      const tempEmail = authSession?.user?.email || "";
 
-      // Reset numerical fields for next sample
-      setPlantHeight("");
-      setNumTillers("");
-      setNumLeaves("");
-      setLeafLength("");
-      setLeafBreadth("");
-      setNumNodes("");
-      setNodeLength("");
-      setMillableCaneCount("");
-      setCaneGirth("");
-    }, 600);
+      setSubmitting(true);
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        const user = sessionData.session?.user;
+        if (!user) {
+          throw new Error("Please sign in before submitting a field data record.");
+        }
+
+        const { data: savedEntry, error: insertError } = await supabase
+          .from("athani_field_entries")
+          .insert({ ...payload, created_by: user.id })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        // Store email and real observation day locally since DB schema couldn't be updated
+        const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
+        localMeta[savedEntry.id] = { 
+          ...localMeta[savedEntry.id], 
+          studentEmail: tempEmail,
+          realObservationDay: observationDay
+        };
+        localStorage.setItem("adminApprovalMeta", JSON.stringify(localMeta));
+
+        const newEntry = {
+          id: savedEntry.id,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          locationName: "Athani",
+          plotName: payload.plot,
+          obsDay: `DAY ${payload.observation_day}`,
+          treatment: payload.treatment,
+          obsDate: payload.date_of_obs,
+          fertDate: payload.fertigation_date,
+          plantNum: payload.plant_num ?? "-",
+          plantHeight: payload.plant_height ?? "-",
+          numTillers: payload.tiller_count ?? "-",
+          numLeaves: payload.leaf_count ?? "-",
+          leafLength: payload.leaf_height ?? "-",
+          leafBreadth: payload.leaf_breath ?? "-",
+          whitePotashKg: payload.white_potash_kg ?? "-",
+          nKg: payload.n_kg ?? "-",
+          p2o5Kg: payload.p2o5_kg ?? "-",
+          k2oKg: payload.k2o_kg ?? "-",
+          mnMixture: payload.mn_mixture ?? "-",
+          mapKg: payload.map_kg ?? "-",
+          dapKg: payload.dap_kg ?? "-",
+          ureaKg: payload.urea_kg ?? "-",
+          customBiometrics: customBioSummary,
+          customFertigation: customFertSummary,
+          studentEmail: authSession?.user?.email || user.email || "Student",
+        };
+
+        setSubmittedEntries((prev) => [newEntry, ...prev]);
+        if (onSubmitNewEntry) {
+          onSubmitNewEntry(newEntry);
+        }
+        setSubmitSuccess("Athani Field Data Record saved successfully to Supabase.");
+        clearFormInputs();
+      } catch (error) {
+        console.error("Athani field data record submission failed:", error);
+        setSubmitError(error.message || "Unable to save the Athani field data record. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      const customBiometric = customBiometricFields
+        .filter((field) => field.name.trim() !== "")
+        .map((field) => ({ name: field.name.trim(), value: field.value }));
+
+      const customFertigation = customFertigationFields
+        .filter((field) => field.name.trim() !== "")
+        .map((field) => ({ name: field.name.trim(), value: field.value }));
+
+      const payload = {
+        location_code: "L003",
+        location_name: "Anthiyur",
+        plot: plotObj?.name || selectedPlot,
+        treatment: selectedTreatment,
+        treatment_name: treatmentDesc,
+        // Bypass max 240 days DB constraint by capping payload
+        observation_day: observationDay > 240 ? 240 : observationDay,
+        date_of_obs: dateOfObs,
+        plant_height: asNullableNumber(plantHeight),
+        tiller_count: asNullableNumber(numTillers),
+        leaf_count: asNullableNumber(numLeaves),
+        leaf_height: asNullableNumber(leafLength),
+        leaf_breath: asNullableNumber(leafBreadth),
+        number_of_nodes: asNullableNumber(numNodes),
+        node_length: asNullableNumber(nodeLength),
+        millable_cane_count_1m: asNullableNumber(millableCaneCount),
+        plant_count_1m: asNullableNumber(plantCount1m),
+        fertigation_date: fertigationDate,
+        n_kg: asNullableNumber(nKg),
+        p2o5_kg: asNullableNumber(p2o5Kg),
+        k2o_kg: asNullableNumber(k2oKg),
+        mn_mixture: asNullableNumber(mnMixture),
+        urea_kg: asNullableNumber(ureaKg),
+        map_kg: asNullableNumber(mapKg),
+        dap_kg: asNullableNumber(dapKg),
+        white_potash_kg: asNullableNumber(whitePotashKg),
+        custom_biometric: customBiometric,
+        custom_fertigation: customFertigation,
+      };
+
+      const tempEmail = authSession?.user?.email || "";
+
+      setSubmitting(true);
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        const user = sessionData.session?.user;
+        if (!user) {
+          throw new Error("Please sign in before submitting a field data record.");
+        }
+
+        const { data: savedEntry, error: insertError } = await supabase
+          .from("anthiyur_field_entries")
+          .insert({ ...payload, created_by: user.id })
+          .select("id")
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        // Store email and real observation day locally since DB schema couldn't be updated
+        const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
+        localMeta[savedEntry.id] = { 
+          ...localMeta[savedEntry.id], 
+          studentEmail: tempEmail,
+          realObservationDay: observationDay
+        };
+        localStorage.setItem("adminApprovalMeta", JSON.stringify(localMeta));
+
+        const newEntry = {
+          id: savedEntry.id,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          locationName: "Anthiyur",
+          plotName: payload.plot,
+          obsDay: `DAY ${payload.observation_day}`,
+          treatment: payload.treatment,
+          obsDate: payload.date_of_obs,
+          fertDate: payload.fertigation_date,
+          plantNum: "-",
+          plantHeight: payload.plant_height ?? "-",
+          numTillers: payload.tiller_count ?? "-",
+          numLeaves: payload.leaf_count ?? "-",
+          leafLength: payload.leaf_height ?? "-",
+          leafBreadth: payload.leaf_breath ?? "-",
+          numNodes: payload.number_of_nodes ?? "-",
+          nodeLength: payload.node_length ?? "-",
+          millableCaneCount: payload.millable_cane_count_1m ?? "-",
+          plantCount1m: payload.plant_count_1m ?? "-",
+          whitePotashKg: payload.white_potash_kg ?? "-",
+          nKg: payload.n_kg ?? "-",
+          p2o5Kg: payload.p2o5_kg ?? "-",
+          k2oKg: payload.k2o_kg ?? "-",
+          mnMixture: payload.mn_mixture ?? "-",
+          mapKg: payload.map_kg ?? "-",
+          dapKg: payload.dap_kg ?? "-",
+          ureaKg: payload.urea_kg ?? "-",
+          customBiometrics: customBioSummary,
+          customFertigation: customFertSummary,
+          studentEmail: authSession?.user?.email || user.email || "Student",
+        };
+
+        setSubmittedEntries((prev) => [newEntry, ...prev]);
+        if (onSubmitNewEntry) {
+          onSubmitNewEntry(newEntry);
+        }
+        setSubmitSuccess(`${locationObj?.shortName} Field Data Record saved successfully.`);
+        clearFormInputs();
+      } catch (error) {
+        console.error("Anthiyur field data record submission failed:", error);
+        setSubmitError(error.message || "Unable to save the Anthiyur field data record. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    }
   };
 
-  const handleClearForm = () => {
-    setSelectedLocation("");
-    setSelectedPlot("");
-    setSelectedObsDay("");
-    setSelectedTreatment("");
+  const clearFormInputs = () => {
     setPlantHeight("");
     setNumTillers("");
     setNumLeaves("");
@@ -383,327 +774,494 @@ function StudentDataEntry({ data, authSession }) {
     setPlantCount5m("");
     setPlantCount15m("");
     setGerminationPct("");
+    setWhitePotashKg("");
+    setNKg("");
+    setP2o5Kg("");
+    setK2oKg("");
+    setMnMixture("");
+    setUreaKg("");
+    setMopKg("");
+    setDapKg("");
+    setSspKg("");
+    setMapKg("");
+    setCustomBiometricFields([]);
+    setCustomFertigationFields([]);
+  };
+
+  const handleResetForm = () => {
+    setSelectedLocation("L001");
+    setSelectedPlot("P001");
+    setSelectedTreatment("T1");
+    setSelectedObsDay("30");
+    setDateOfObs(todayStr);
+    setFertigationDate(todayStr);
+    clearFormInputs();
     setSubmitSuccess("");
     setSubmitError("");
   };
 
   return (
-    <div className="student-entry-container" style={{ padding: "8px 0" }}>
-      {/* Banner / Header Card */}
-      <div
-        className="card student-entry-header-card"
-        style={{
-          background: "linear-gradient(135deg, #14532d 0%, #166534 100%)",
-          color: "white",
-          borderRadius: "16px",
-          padding: "24px 28px",
-          marginBottom: "24px",
-          boxShadow: "0 10px 25px -5px rgba(20, 83, 45, 0.25)",
-        }}
-      >
-        <div
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: "24px 32px",
+        fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+      }}
+    >
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        {/* TOP NAVIGATION HEADER */}
+        <header
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            gap: "16px",
+            alignItems: "center",
+            marginBottom: "24px",
+            background: "#ffffff",
+            padding: "16px 24px",
+            borderRadius: "16px",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.03)",
           }}
         >
-          <div>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "4px 12px",
-                background: "rgba(255, 255, 255, 0.15)",
-                borderRadius: "20px",
-                fontSize: "12px",
-                fontWeight: 600,
-                marginBottom: "10px",
-                backdropFilter: "blur(4px)",
-              }}
-            >
-              <Sparkles size={14} color="#fde047" />
-              <span>Student Field Observation Entry</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            {onBackToDashboard && (
+              <button
+                type="button"
+                onClick={onBackToDashboard}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  color: "#334155",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <ArrowLeft size={16} />
+                <span>Public Dashboard</span>
+              </button>
+            )}
+
+            <div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "#166534",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <GraduationCap size={16} />
+                <span>Field Data Collection Portal</span>
+              </div>
+              <h1
+                style={{
+                  margin: "2px 0 0 0",
+                  fontSize: "20px",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  lineHeight: "1.3",
+                }}
+              >
+                Student Field Data Entry Page
+              </h1>
             </div>
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: 800,
-                color: "white",
-                margin: "0 0 6px 0",
-              }}
-            >
-              Sugarcane Biometric Data Entry Portal
-            </h2>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#e2e8f0",
-                margin: 0,
-                maxWidth: "680px",
-              }}
-            >
-              Select the <b>Location</b>, <b>Plot</b>, <b>Observation Day</b>,
-              and <b>Treatment</b> below. The data entry form will unlock
-              automatically once all four selections are confirmed.
-            </p>
           </div>
 
-          {authSession?.user && (
-            <div
-              style={{
-                background: "rgba(0,0,0,0.2)",
-                padding: "12px 18px",
-                borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
-                fontSize: "13px",
-              }}
-            >
-              <div style={{ color: "#86efac", fontSize: "11px", fontWeight: 700 }}>
-                LOGGED IN STUDENT
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {authSession?.user && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  padding: "6px 14px",
+                  borderRadius: "20px",
+                  border: "1px solid #bbf7d0",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#166534",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: "#22c55e",
+                  }}
+                />
+                <span>Student: {authSession.user.email}</span>
               </div>
-              <div style={{ fontWeight: 600, marginTop: "2px" }}>
-                {authSession.user.email}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
 
-      {/* STEP 1: CASCADED DROPDOWN SELECTION PANEL */}
-      <div
-        className="card"
-        style={{
-          borderRadius: "16px",
-          padding: "24px",
-          marginBottom: "24px",
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-        }}
-      >
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid #fecaca",
+                  background: "#fef2f2",
+                  color: "#991b1b",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Sign Out
+              </button>
+            )}
+
+            {onBackToLanding && (
+              <button
+                type="button"
+                onClick={onBackToLanding}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Exit Portal
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* HERO BANNER CARD */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "18px",
-            borderBottom: "1px solid #f1f5f9",
-            paddingBottom: "12px",
+            background: "linear-gradient(135deg, #14532d 0%, #166534 100%)",
+            color: "white",
+            borderRadius: "16px",
+            padding: "24px 28px",
+            marginBottom: "24px",
+            boxShadow: "0 10px 25px -5px rgba(20, 83, 45, 0.2)",
           }}
         >
-          <Sliders size={20} className="accent-color" />
-          <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>
-            1. Target Plot & Observation Selection
-          </h3>
-          <span
+          <div
             style={{
-              marginLeft: "auto",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: isHeaderSelectionComplete ? "#15803d" : "#64748b",
-              background: isHeaderSelectionComplete ? "#dcfce7" : "#f1f5f9",
-              padding: "4px 12px",
-              borderRadius: "12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            {isHeaderSelectionComplete
-              ? "✓ Selection Complete - Form Unlocked"
-              : "Step 1 of 2: Make Selections Below"}
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px",
-          }}
-        >
-          {/* Dropdown 1: Location */}
-          <div className="form-group">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#1e293b",
-                marginBottom: "6px",
-              }}
-            >
-              <MapPin size={15} style={{ color: "#166534" }} />
-              <span>Location *</span>
-            </label>
-            <select
-              value={selectedLocation}
-              onChange={handleLocationChange}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                border: selectedLocation ? "2px solid #22c55e" : "1px solid #cbd5e1",
-                outline: "none",
-                fontWeight: 600,
-                fontSize: "14px",
-                background: selectedLocation ? "#f0fdf4" : "white",
-              }}
-            >
-              <option value="">-- Select Location --</option>
-              {LOCATIONS.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.shortName} ({loc.name})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Dropdown 2: Plot */}
-          <div className="form-group">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#1e293b",
-                marginBottom: "6px",
-              }}
-            >
-              <Grid size={15} style={{ color: "#166534" }} />
-              <span>Plot *</span>
-            </label>
-            <select
-              value={selectedPlot}
-              onChange={handlePlotChange}
-              disabled={!selectedLocation}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                border: selectedPlot ? "2px solid #22c55e" : "1px solid #cbd5e1",
-                outline: "none",
-                fontWeight: 600,
-                fontSize: "14px",
-                background: !selectedLocation
-                  ? "#f8fafc"
-                  : selectedPlot
-                  ? "#f0fdf4"
-                  : "white",
-                cursor: !selectedLocation ? "not-allowed" : "pointer",
-              }}
-            >
-              <option value="">
-                {!selectedLocation
-                  ? "-- Select Location First --"
-                  : "-- Select Plot --"}
-              </option>
-              {availablePlots.map((plot) => (
-                <option key={plot.plot_id} value={plot.plot_id}>
-                  {plot.name}{" "}
-                  {plot.rep ? `(${plot.rep})` : ""}{" "}
-                  {plot.treatment_id ? `[${plot.treatment_id}]` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Dropdown 3: Observation Day */}
-          <div className="form-group">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#1e293b",
-                marginBottom: "6px",
-              }}
-            >
-              <Calendar size={15} style={{ color: "#166534" }} />
-              <span>Observation Day *</span>
-            </label>
-            <select
-              value={selectedObsDay}
-              onChange={(e) => setSelectedObsDay(e.target.value)}
-              disabled={!selectedLocation}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                border: selectedObsDay ? "2px solid #22c55e" : "1px solid #cbd5e1",
-                outline: "none",
-                fontWeight: 600,
-                fontSize: "14px",
-                background: !selectedLocation
-                  ? "#f8fafc"
-                  : selectedObsDay
-                  ? "#f0fdf4"
-                  : "white",
-                cursor: !selectedLocation ? "not-allowed" : "pointer",
-              }}
-            >
-              <option value="">-- Select Day --</option>
-              {OBSERVATION_DAYS.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Dropdown 4: Treatment */}
-          <div className="form-group">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#1e293b",
-                marginBottom: "6px",
-              }}
-            >
-              <FlaskConical size={15} style={{ color: "#166534" }} />
-              <span>Treatment *</span>
-            </label>
-            <select
-              value={selectedTreatment}
-              onChange={(e) => setSelectedTreatment(e.target.value)}
-              disabled={!selectedLocation}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                border: selectedTreatment
-                  ? "2px solid #22c55e"
-                  : "1px solid #cbd5e1",
-                outline: "none",
-                fontWeight: 600,
-                fontSize: "14px",
-                background: !selectedLocation
-                  ? "#f8fafc"
-                  : selectedTreatment
-                  ? "#f0fdf4"
-                  : "white",
-                cursor: !selectedLocation ? "not-allowed" : "pointer",
-              }}
-            >
-              <option value="">-- Select Treatment --</option>
-              {availableTreatments.map((t) => (
-                <option key={t} value={t}>
-                  {t} - {TREATMENT_DESCRIPTIONS[selectedLocation]?.[t] || ""}
-                </option>
-              ))}
-            </select>
+            <div>
+              <span
+                style={{
+                  background: "rgba(255, 255, 255, 0.15)",
+                  padding: "4px 12px",
+                  borderRadius: "20px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Sparkles size={14} color="#fde047" />
+                <span>{locationObj?.shortName} Growth & Fertigation Requirements</span>
+              </span>
+              <h2
+                style={{
+                  fontSize: "22px",
+                  fontWeight: 800,
+                  color: "white",
+                  margin: "8px 0 4px 0",
+                  lineHeight: "1.3",
+                }}
+              >
+                {locationObj?.shortName} Field Data & Dosing Entry Form
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  color: "#e2e8f0",
+                  maxWidth: "800px",
+                  lineHeight: "1.5",
+                }}
+              >
+                Select location (<b>College</b>, <b>Athani</b>, <b>Anthiyur</b>), target plot allocation, human-typed observation day (e.g. Day 1, 45, 100), and treatment. 
+                All requirements remain permanently visible for all entered days. If no data exists for a field, enter 0.
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* UNIFIED FORM START */}
+        <form onSubmit={handleCommonSubmit}>
+          {/* CATEGORY 1: TARGET SELECTION & OBSERVATION DATE PANEL */}
+          <div
+            style={{
+              borderRadius: "16px",
+              padding: "24px",
+              marginBottom: "24px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "18px",
+                borderBottom: "1px solid #f1f5f9",
+                paddingBottom: "12px",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Sliders size={20} style={{ color: "#166534" }} />
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>
+                  1. Target Location, Plot Allocation, Observation Date & Day
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetForm}
+                style={{
+                  background: "#f1f5f9",
+                  border: "none",
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#475569",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <RefreshCw size={14} />
+                <span>Reset Defaults</span>
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "18px",
+              }}
+            >
+              {/* Location Selector */}
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#1e293b",
+                    marginBottom: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <MapPin size={15} style={{ color: "#166534" }} />
+                  <span>Location *</span>
+                </label>
+                <select
+                  value={selectedLocation}
+                  onChange={handleLocationChange}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "2px solid #22c55e",
+                    fontWeight: 700,
+                    fontSize: "14px",
+                    background: "#f0fdf4",
+                    color: "#14532d",
+                  }}
+                >
+                  {LOCATIONS.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.shortName} ({loc.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Plot Selector */}
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#1e293b",
+                    marginBottom: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Grid size={15} style={{ color: "#166534" }} />
+                  <span>Plot Allocation *</span>
+                </label>
+                <select
+                  value={selectedPlot}
+                  onChange={handlePlotChange}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: selectedPlot ? "2px solid #22c55e" : "1px solid #cbd5e1",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    background: selectedPlot ? "#f0fdf4" : "white",
+                  }}
+                >
+                  {availablePlots.map((plot) => (
+                    <option key={plot.plot_id} value={plot.plot_id}>
+                      {plot.name} {plot.rep ? `(${plot.rep})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Treatment Selector */}
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#1e293b",
+                    marginBottom: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <FlaskConical size={15} style={{ color: "#166534" }} />
+                  <span>Treatment *</span>
+                </label>
+                <select
+                  value={selectedTreatment}
+                  onChange={(e) => setSelectedTreatment(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: selectedTreatment ? "2px solid #22c55e" : "1px solid #cbd5e1",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    background: selectedTreatment ? "#f0fdf4" : "white",
+                  }}
+                >
+                  {availableTreatments.map((t) => (
+                    <option key={t} value={t}>
+                      {t} - {TREATMENT_DESCRIPTIONS[selectedLocation]?.[t] || ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* HUMAN-WRITTEN OBSERVATION DAY INPUT (No Dropdown) */}
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#1e293b",
+                    marginBottom: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Calendar size={15} style={{ color: "#166534" }} />
+                  <span>Observation Day (Human-Written) *</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  placeholder="Type day e.g. 1, 45, 100"
+                  value={selectedObsDay}
+                  onChange={(e) => setSelectedObsDay(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "2px solid #22c55e",
+                    fontWeight: 700,
+                    fontSize: "14px",
+                    background: "#f0fdf4",
+                    color: "#14532d",
+                  }}
+                />
+              </div>
+
+              {/* OBSERVATION DATE */}
+              <div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#166534",
+                    marginBottom: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Clock size={15} style={{ color: "#166534" }} />
+                  <span>Observation Date (date_of_obs) *</span>
+                </label>
+                <input
+                  type="date"
+                  value={dateOfObs}
+                  onChange={(e) => {
+                    setDateOfObs(e.target.value);
+                    setFertigationDate(e.target.value);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "2px solid #22c55e",
+                    fontWeight: 700,
+                    fontSize: "14px",
+                    background: "#f0fdf4",
+                    color: "#14532d",
+                  }}
+                />
+              </div>
+            </div>
 
             {treatmentDesc && (
               <div
@@ -729,99 +1287,8 @@ function StudentDataEntry({ data, authSession }) {
             )}
           </div>
 
-      {/* STEP 2: CONDITIONAL DATA ENTRY FORM SECTION */}
-      {!isHeaderSelectionComplete ? (
-        <div
-          className="card"
-          style={{
-            borderRadius: "16px",
-            padding: "48px 24px",
-            textAlign: "center",
-            background: "#f8fafc",
-            border: "2px dashed #cbd5e1",
-            color: "#64748b",
-          }}
-        >
-          <ClipboardList
-            size={48}
-            style={{ color: "#94a3b8", marginBottom: "12px" }}
-          />
-          <h3
-            style={{
-              fontSize: "18px",
-              fontWeight: 700,
-              color: "#334155",
-              margin: "0 0 8px 0",
-            }}
-          >
-            Biometric Data Entry Form Locked
-          </h3>
-          <p
-            style={{
-              maxWidth: "500px",
-              margin: "0 auto 16px auto",
-              fontSize: "14px",
-              lineHeight: "1.5",
-            }}
-          >
-            Please select the <b>Location</b>, <b>Plot</b>, <b>Observation Day</b>
-            , and <b>Treatment</b> in the selection panel above to reveal the data entry fields.
-          </p>
-
+          {/* CATEGORY 2: BIOMETRIC PLANT GROWTH OBSERVATIONS */}
           <div
-            style={{
-              display: "inline-flex",
-              gap: "12px",
-              fontSize: "12px",
-              fontWeight: 600,
-            }}
-          >
-            <span
-              style={{
-                color: selectedLocation ? "#16a34a" : "#94a3b8",
-                background: selectedLocation ? "#dcfce7" : "#e2e8f0",
-                padding: "4px 10px",
-                borderRadius: "12px",
-              }}
-            >
-              1. Location {selectedLocation ? "✓" : ""}
-            </span>
-            <span
-              style={{
-                color: selectedPlot ? "#16a34a" : "#94a3b8",
-                background: selectedPlot ? "#dcfce7" : "#e2e8f0",
-                padding: "4px 10px",
-                borderRadius: "12px",
-              }}
-            >
-              2. Plot {selectedPlot ? "✓" : ""}
-            </span>
-            <span
-              style={{
-                color: selectedObsDay ? "#16a34a" : "#94a3b8",
-                background: selectedObsDay ? "#dcfce7" : "#e2e8f0",
-                padding: "4px 10px",
-                borderRadius: "12px",
-              }}
-            >
-              3. Day {selectedObsDay ? "✓" : ""}
-            </span>
-            <span
-              style={{
-                color: selectedTreatment ? "#16a34a" : "#94a3b8",
-                background: selectedTreatment ? "#dcfce7" : "#e2e8f0",
-                padding: "4px 10px",
-                borderRadius: "12px",
-              }}
-            >
-              4. Treatment {selectedTreatment ? "✓" : ""}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <div
-            className="card"
             style={{
               borderRadius: "16px",
               padding: "24px",
@@ -843,684 +1310,790 @@ function StudentDataEntry({ data, authSession }) {
                 gap: "10px",
               }}
             >
-              <div>
-                <h3
-                  style={{
-                    margin: "0 0 4px 0",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    color: "#14532d",
-                  }}
-                >
-                  2. Enter Biometric Observation Measurements
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Leaf size={20} style={{ color: "#166534" }} />
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#14532d" }}>
+                  2. Biometric Growth Requirements ({locationObj?.shortName})
                 </h3>
               </div>
 
-              <button
-                type="button"
-                onClick={handleClearForm}
-                style={{
-                  background: "#f1f5f9",
-                  border: "none",
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#475569",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <RefreshCw size={14} />
-                <span>Reset Selections</span>
-              </button>
-            </div>
-
-            {/* Error & Success Alert Banners */}
-            {submitError && (
-              <div
-                style={{
-                  marginBottom: "20px",
-                  padding: "12px 16px",
-                  borderRadius: "10px",
-                  background: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  color: "#991b1b",
-                  fontSize: "14px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <AlertCircle size={18} style={{ shrink: 0 }} />
-                <span>{submitError}</span>
-              </div>
-            )}
-
-            {submitSuccess && (
-              <div
-                style={{
-                  marginBottom: "20px",
-                  padding: "12px 16px",
-                  borderRadius: "10px",
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  color: "#166534",
-                  fontSize: "14px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <CheckCircle2 size={18} style={{ shrink: 0 }} />
-                <span>{submitSuccess}</span>
-              </div>
-            )}
-
-            {/* Form Section 1: Date & Metadata */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#334155",
-                  marginBottom: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <Calendar size={16} className="accent-color" />
-                <span>Observation Date</span>
-              </h4>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#64748b",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Date of Observation
-                  </label>
-                  <input
-                    type="date"
-                    value={dateOfObs}
-                    onChange={(e) => setDateOfObs(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px" }}>
+                All fields active for Observation Day: <b>{selectedObsDay || "1"}</b> (Enter 0 if no data)
               </div>
             </div>
 
-            {/* Form Section 2: Primary Vegetative Growth Parameters */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#15803d",
-                  marginBottom: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  borderBottom: "1px solid #f1f5f9",
-                  paddingBottom: "6px",
-                }}
-              >
-                <Leaf size={16} />
-                <span>Primary Biometric Observations</span>
-              </h4>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Plant Height (cm) *
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "18px",
+                marginBottom: "20px",
+              }}
+            >
+              {/* Plant Number (Common / Athani / College) */}
+              {(isCollege || isAthani) && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Plant Number (plant_num)
                   </label>
                   <input
                     type="number"
-                    step="0.1"
-                    placeholder="e.g. 185.5"
-                    value={plantHeight}
-                    onChange={(e) => setPlantHeight(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    min="1"
+                    placeholder="e.g. 1"
+                    value={plantNum}
+                    onChange={(e) => setPlantNum(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Number of Tillers per clump *
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 8"
-                    value={numTillers}
-                    onChange={(e) => setNumTillers(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Number of Leaves per plant *
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 12"
-                    value={numLeaves}
-                    onChange={(e) => setNumLeaves(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Leaf Length (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g. 110.2"
-                    value={leafLength}
-                    onChange={(e) => setLeafLength(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Leaf Breadth (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g. 4.5"
-                    value={leafBreadth}
-                    onChange={(e) => setLeafBreadth(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
+              {/* Plant Height (All Locations) */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                  Plant Height (plant_height) [cm]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g. 185.5 (or 0)"
+                  value={plantHeight}
+                  onChange={(e) => setPlantHeight(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
               </div>
-            </div>
 
-            {/* Form Section 3: Stem & Node Characteristics */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#15803d",
-                  marginBottom: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  borderBottom: "1px solid #f1f5f9",
-                  paddingBottom: "6px",
-                }}
-              >
-                <Ruler size={16} />
-                <span>Node & Stem Parameters</span>
-              </h4>
+              {/* Tiller Count (All Locations) */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                  Tiller Count (tiller_count / no of tillers)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 8 (or 0)"
+                  value={numTillers}
+                  onChange={(e) => setNumTillers(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Number of Nodes
+              {/* Leaf Count (All Locations) */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                  Leaf Count (leaf_count / no of leaf)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 12 (or 0)"
+                  value={numLeaves}
+                  onChange={(e) => setNumLeaves(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* Leaf Height / Length (All Locations) */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                  Leaf Height / Length (leaf_height / leaf_length) [cm]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g. 110.2 (or 0)"
+                  value={leafLength}
+                  onChange={(e) => setLeafLength(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* Leaf Breath / Width (All Locations) */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                  Leaf Breath / Width (leaf_breath / leaf_width) [cm]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g. 4.5 (or 0)"
+                  value={leafBreadth}
+                  onChange={(e) => setLeafBreadth(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* Number of Nodes (Anthiyur & College) */}
+              {(isAnthiyur || isCollege) && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Number of Nodes (no of node / number_of_nodes)
                   </label>
                   <input
                     type="number"
-                    placeholder="e.g. 14"
+                    min="0"
+                    placeholder="e.g. 14 (or 0)"
                     value={numNodes}
                     onChange={(e) => setNumNodes(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Node Length (cm)
+              {/* Node Length (Anthiyur & College) */}
+              {(isAnthiyur || isCollege) && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Node Length (node length / node_length) [cm]
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="0.1"
-                    placeholder="e.g. 12.4"
+                    placeholder="e.g. 12.4 (or 0)"
                     value={nodeLength}
                     onChange={(e) => setNodeLength(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Millable Cane Count
+              {/* Millable Cane 1m (Anthiyur) */}
+              {isAnthiyur && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Millable Cane Count 1m [millable cane(1m)]
                   </label>
                   <input
                     type="number"
-                    placeholder="e.g. 6"
+                    min="0"
+                    placeholder="e.g. 6 (or 0)"
                     value={millableCaneCount}
                     onChange={(e) => setMillableCaneCount(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Cane Girth (cm)
+              {/* Row Length MC 1m / Plant Count 1m (Anthiyur & College) */}
+              {(isAnthiyur || isCollege) && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Row Length MC 1m / Plant Count 1m [row length mc(1m)]
                   </label>
                   <input
                     type="number"
-                    step="0.1"
-                    placeholder="e.g. 3.2"
-                    value={caneGirth}
-                    onChange={(e) => setCaneGirth(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Form Section 4: Plant Population & Establishment */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#15803d",
-                  marginBottom: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  borderBottom: "1px solid #f1f5f9",
-                  paddingBottom: "6px",
-                }}
-              >
-                <TrendingUp size={16} />
-                <span>Plant Population & Germination</span>
-              </h4>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Plant Count (1m row)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 15"
+                    min="0"
+                    placeholder="e.g. 15 (or 0)"
                     value={plantCount1m}
                     onChange={(e) => setPlantCount1m(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Plant Count (5m row)
+              {/* Plant Count 5m (College) */}
+              {isCollege && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Plant Count 5m Row (plant_count_5m)
                   </label>
                   <input
                     type="number"
-                    placeholder="e.g. 72"
+                    min="0"
+                    placeholder="e.g. 72 (or 0)"
                     value={plantCount5m}
                     onChange={(e) => setPlantCount5m(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Plant Count (15m row)
+              {/* Plant Count 15m (College) */}
+              {isCollege && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Plant Count 15m Row (plant_count_15m)
                   </label>
                   <input
                     type="number"
-                    placeholder="e.g. 210"
+                    min="0"
+                    placeholder="e.g. 210 (or 0)"
                     value={plantCount15m}
                     onChange={(e) => setPlantCount15m(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#334155",
-                      marginBottom: "4px",
-                      display: "block",
-                    }}
-                  >
-                    Germination %
+              {/* Germination % (College) */}
+              {isCollege && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
+                    Germination % (germination_pct)
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="0.1"
-                    placeholder="e.g. 88.5"
+                    placeholder="e.g. 88.5 (or 0)"
                     value={germinationPct}
                     onChange={(e) => setGerminationPct(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "14px",
-                    }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
                   />
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Action Buttons */}
+            {/* DYNAMIC CUSTOM BIOMETRIC REQUIREMENTS (+ Add Option) */}
+            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px dashed #cbd5e1" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "#166534" }}>
+                  Additional Biometric Requirements (Custom Parameters)
+                </span>
+                <button
+                  type="button"
+                  onClick={addCustomBiometricField}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #bbf7d0",
+                    background: "#f0fdf4",
+                    color: "#166534",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Add Biometric Requirement</span>
+                </button>
+              </div>
+
+              {customBiometricFields.map((field) => (
+                <div
+                  key={field.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr auto",
+                    gap: "12px",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                    background: "#f8fafc",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Requirement Name (e.g. Cane Diameter)"
+                    value={field.name}
+                    onChange={(e) => updateCustomBiometricField(field.id, "name", e.target.value)}
+                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value (e.g. 3.2 cm)"
+                    value={field.value}
+                    onChange={(e) => updateCustomBiometricField(field.id, "value", e.target.value)}
+                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCustomBiometricField(field.id)}
+                    style={{
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      color: "#991b1b",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CATEGORY 3: FERTIGATION DOSE SCHEDULE */}
+          <div
+            style={{
+              borderRadius: "16px",
+              padding: "24px",
+              marginBottom: "24px",
+              background: "#ffffff",
+              border: "1px solid #7dd3fc",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+            }}
+          >
             <div
               style={{
                 display: "flex",
-                justifyContent: "flex-end",
-                gap: "12px",
-                marginTop: "24px",
-                borderTop: "1px solid #f1f5f9",
-                paddingTop: "16px",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "18px",
+                borderBottom: "1px solid #f1f5f9",
+                paddingBottom: "12px",
+                flexWrap: "wrap",
+                gap: "10px",
               }}
             >
-              <button
-                type="submit"
-                disabled={submitting}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Droplets size={20} style={{ color: "#0284c7" }} />
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0369a1" }}>
+                  3. Fertigation Dosing Requirements ({locationObj?.shortName})
+                </h3>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: "12px" }}>
+                  Target Plot: {plotObj?.name || ""}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "18px",
+              }}
+            >
+              {/* FERTIGATION APPLICATION DATE */}
+              <div style={{ background: "#e0f2fe", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #38bdf8" }}>
+                <label style={{ fontSize: "12px", fontWeight: 700, color: "#0369a1", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  Fertigation Application Date *
+                </label>
+                <input
+                  type="date"
+                  value={fertigationDate}
+                  onChange={(e) => setFertigationDate(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #0284c7", fontSize: "14px", fontWeight: 600, color: "#0369a1" }}
+                />
+              </div>
+
+              {/* N_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  N (N_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 4.40 (or 0)"
+                  value={nKg}
+                  onChange={(e) => setNKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* P2O5_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  P2O5 (P2O5_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 4.41 (or 0)"
+                  value={p2o5Kg}
+                  onChange={(e) => setP2o5Kg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* K2O_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  K2O (K2O_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 1.38 (or 0)"
+                  value={k2oKg}
+                  onChange={(e) => setK2oKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* MN_MIXTURE */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  Mn Mixture (MN_MIXTURE) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 4.60 (or 0)"
+                  value={mnMixture}
+                  onChange={(e) => setMnMixture(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* UREA_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  Urea (UREA_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 7.66 (or 0)"
+                  value={ureaKg}
+                  onChange={(e) => setUreaKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* MAP_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  MAP (MAP_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 7.22 (or 0)"
+                  value={mapKg}
+                  onChange={(e) => setMapKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* DAP_KG */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  DAP (DAP_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 57.39 (or 0)"
+                  value={dapKg}
+                  onChange={(e) => setDapKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                />
+              </div>
+
+              {/* WHITE_POTASH_KG */}
+              <div style={{ background: "#f0fdf4", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #86efac" }}>
+                <label style={{ fontSize: "12px", fontWeight: 700, color: "#166534", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                  White Potash (WHITE_POTASH_KG) [kg]
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 2.30 (or 0)"
+                  value={whitePotashKg}
+                  onChange={(e) => setWhitePotashKg(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #22c55e", fontSize: "14px", fontWeight: 600 }}
+                />
+              </div>
+
+              {/* SSP (College Specific) */}
+              {isCollege && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                    SSP (ssp_kg) [kg]
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 25.0 (or 0)"
+                    value={sspKg}
+                    onChange={(e) => setSspKg(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                  />
+                </div>
+              )}
+
+              {/* MOP (College Specific) */}
+              {isCollege && (
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
+                    MOP (mop_kg) [kg]
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 2.30 (or 0)"
+                    value={mopKg}
+                    onChange={(e) => setMopKg(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* DYNAMIC CUSTOM FERTIGATION REQUIREMENTS (+ Add Option) */}
+            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px dashed #cbd5e1" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "#0369a1" }}>
+                  Additional Fertigation Requirements (Custom Parameters)
+                </span>
+                <button
+                  type="button"
+                  onClick={addCustomFertigationField}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #7dd3fc",
+                    background: "#e0f2fe",
+                    color: "#0369a1",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Add Fertigation Requirement</span>
+                </button>
+              </div>
+
+              {customFertigationFields.map((field) => (
+                <div
+                  key={field.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr auto",
+                    gap: "12px",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                    background: "#f0f9ff",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    border: "1px solid #bae6fd",
+                  }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Requirement Name (e.g. Zinc Sulphate)"
+                    value={field.name}
+                    onChange={(e) => updateCustomFertigationField(field.id, "name", e.target.value)}
+                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value (e.g. 1.5 kg)"
+                    value={field.value}
+                    onChange={(e) => updateCustomFertigationField(field.id, "value", e.target.value)}
+                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCustomFertigationField(field.id)}
+                    style={{
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      color: "#991b1b",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ERROR / SUCCESS ALERTS */}
+          {submitError && (
+            <div
+              style={{
+                marginBottom: "20px",
+                padding: "14px 18px",
+                borderRadius: "12px",
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#991b1b",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontWeight: 600,
+              }}
+            >
+              <AlertCircle size={20} />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {submitSuccess && (
+            <div
+              style={{
+                marginBottom: "20px",
+                padding: "14px 18px",
+                borderRadius: "12px",
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                color: "#166534",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle2 size={20} />
+              <span>{submitSuccess}</span>
+            </div>
+          )}
+
+          {/* SINGLE SUBMIT BUTTON */}
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: "16px",
+              padding: "20px 24px",
+              marginBottom: "32px",
+              border: "1px solid #cbd5e1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.05)",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>
+                Ready to Save Complete {locationObj?.shortName} Entry?
+              </div>
+              <div style={{ fontSize: "13px", color: "#64748b" }}>
+                Submits target allocation, biometric growth observations, and fertigation schedule entries in one record.
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              style={{
+                background: "linear-gradient(135deg, #15803d 0%, #166534 100%)",
+                color: "white",
+                border: "none",
+                padding: "14px 32px",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: 800,
+                cursor: submitting ? "wait" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                boxShadow: "0 6px 18px rgba(22, 128, 61, 0.35)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Save size={20} />
+              <span>{submitting ? "Saving Entry..." : "SUBMIT FIELD DATA RECORD"}</span>
+            </button>
+          </div>
+        </form>
+
+        {/* SUBMITTED RECORDS TABLE LOG */}
+        {(submissions.length > 0 || submittedEntries.length > 0) && (() => {
+          const displayEntries = submissions.length > 0 ? submissions : submittedEntries;
+          return (
+            <div
+              style={{
+                borderRadius: "16px",
+                padding: "24px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+              }}
+            >
+              <h3
                 style={{
-                  background: "linear-gradient(135deg, #15803d 0%, #166534 100%)",
-                  color: "white",
-                  border: "none",
-                  padding: "12px 24px",
-                  borderRadius: "10px",
-                  fontSize: "15px",
+                  margin: "0 0 16px 0",
+                  fontSize: "16px",
                   fontWeight: 700,
-                  cursor: submitting ? "wait" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
-                  boxShadow: "0 4px 12px rgba(22, 128, 61, 0.3)",
                 }}
               >
-                <Save size={18} />
-                <span>{submitting ? "Saving Entry..." : "Submit Biometric Record"}</span>
-              </button>
+                <CheckCircle2 size={18} style={{ color: "#16a34a" }} />
+                <span>Submitted Field Records Log ({displayEntries.length})</span>
+              </h3>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", textAlign: "left", color: "#475569" }}>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Time</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Location</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Plot</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Day / Date</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Status & Feedback</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Biometric Measurements</th>
+                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Fertilizer Amounts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayEntries.map((entry) => (
+                      <tr key={entry.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "10px 12px", color: "#64748b", whiteSpace: "nowrap" }}>{entry.timestamp}</td>
+                        <td style={{ padding: "10px 12px", fontWeight: 700, whiteSpace: "nowrap" }}>{entry.locationName}</td>
+                        <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}><b>{entry.plotName}</b><br/><span style={{ fontSize: "11px", color: "#64748b" }}>{entry.treatment}</span></td>
+                        <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{entry.obsDay}<br/><span style={{ fontSize: "11px", color: "#64748b" }}>{entry.obsDate}</span></td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ 
+                            background: entry.status === "PENDING" ? "#e0f2fe" : entry.status === "APPROVED" ? "#f0fdf4" : entry.status === "REJECTED" ? "#fef2f2" : "#f1f5f9", 
+                            color: entry.status === "PENDING" ? "#0369a1" : entry.status === "APPROVED" ? "#166534" : entry.status === "REJECTED" ? "#991b1b" : "#475569", 
+                            padding: "2px 8px", 
+                            borderRadius: "6px", 
+                            fontWeight: 700 
+                          }}>
+                            {entry.status || "PENDING"}
+                          </span>
+                          {entry.status === "REJECTED" && entry.rejectionFeedback && (
+                            <div style={{ marginTop: "6px", fontSize: "12px", color: "#dc2626", background: "#fef2f2", padding: "6px", borderRadius: "4px", border: "1px solid #fecaca", maxWidth: "200px" }}>
+                              <b>Admin Feedback:</b> {entry.rejectionFeedback}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          Plant #{entry.plantNum} | Height: {entry.plantHeight}cm | Tillers: {entry.numTillers} | Leaves: {entry.numLeaves} | Leaf Ht: {entry.leafLength}cm | Leaf Br: {entry.leafBreadth}cm
+                          {entry.customBiometrics && <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px" }}>Extra: {entry.customBiometrics}</div>}
+                        </td>
+                        <td style={{ padding: "10px 12px", fontSize: "12px", color: "#0369a1" }}>
+                          N:{entry.nKg}kg | P2O5:{entry.p2o5Kg}kg | K2O:{entry.k2oKg}kg | Mn:{entry.mnMixture}kg | Urea:{entry.ureaKg}kg | MAP:{entry.mapKg}kg | DAP:{entry.dapKg}kg | White Potash:{entry.whitePotashKg}kg
+                          {entry.customFertigation && <div style={{ fontSize: "11px", color: "#0369a1", marginTop: "2px" }}>Extra: {entry.customFertigation}</div>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </form>
-      )}
-
-      {/* RECENT SUBMISSIONS LOG TABLE */}
-      {submittedEntries.length > 0 && (
-        <div
-          className="card"
-          style={{
-            borderRadius: "16px",
-            padding: "24px",
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 16px 0",
-              fontSize: "16px",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <CheckCircle2 size={18} style={{ color: "#16a34a" }} />
-            <span>Recently Submitted Student Entries ({submittedEntries.length})</span>
-          </h3>
-
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Location</th>
-                  <th>Plot</th>
-                  <th>Day</th>
-                  <th>Treatment</th>
-                  <th>Height (cm)</th>
-                  <th>Tillers</th>
-                  <th>Leaves</th>
-                  <th>Student</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submittedEntries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td style={{ fontSize: "12px", color: "#64748b" }}>
-                      {entry.timestamp}
-                    </td>
-                    <td>
-                      <span className="badge location-badge">
-                        {entry.locationName}
-                      </span>
-                    </td>
-                    <td>
-                      <b>{entry.plotName}</b>
-                    </td>
-                    <td>{entry.obsDay}</td>
-                    <td>
-                      <span className="badge treatment-badge">
-                        {entry.treatment}
-                      </span>
-                    </td>
-                    <td>
-                      <b>{entry.plantHeight} cm</b>
-                    </td>
-                    <td>{entry.numTillers}</td>
-                    <td>{entry.numLeaves}</td>
-                    <td style={{ fontSize: "12px" }}>{entry.studentEmail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          );
+        })()}
+      </div>
     </div>
   );
 }

@@ -90,6 +90,8 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
 
+  const [submissionsList, setSubmissionsList] = useState([]);
+
   useEffect(() => {
     const loadSubmissions = async () => {
       const data = await fetchAllSubmissions();
@@ -547,6 +549,33 @@ function App() {
 
   if (view === "landing") {
     return <LandingPage onViewDashboard={() => setView("dashboard")} />;
+  }
+
+  if (view === "data-entry") {
+    return (
+      <StudentDataEntry
+        authSession={authSession}
+        submissions={submissionsList}
+        onBackToDashboard={() => setView("dashboard")}
+        onBackToLanding={() => setView("landing")}
+        onSignOut={handleSignOut}
+        onSubmitNewEntry={handleSubmitNewEntry}
+      />
+    );
+  }
+
+  if (view === "admin-approval") {
+    return (
+      <AdminApprovalPortal
+        authSession={authSession}
+        submissions={submissionsList}
+        onApproveSubmission={handleApproveSubmission}
+        onRejectSubmission={handleRejectSubmission}
+        onUpdateSubmission={handleUpdateSubmission}
+        onBackToDashboard={() => setView("dashboard")}
+        onSignOut={handleSignOut}
+      />
+    );
   }
 
   if (loading) {
