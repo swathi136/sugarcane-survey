@@ -89,12 +89,11 @@ function TreatmentComparison({ data, selectedLocation }) {
       if (!grouped[trKey]) {
         grouped[trKey] = {
           treatment: trKey,
-          totalHeight: 0,
-          countHeight: 0,
-          totalTillers: 0,
-          countTillers: 0,
-          totalLeaves: 0,
-          countLeaves: 0,
+          plantHeight: [],
+          tillers: [],
+          leaves: [],
+          leafLength: [],
+          leafBreadth: [],
           recordCount: 0,
         };
       }
@@ -102,8 +101,7 @@ function TreatmentComparison({ data, selectedLocation }) {
       grouped[trKey].recordCount += 1;
 
       if (typeof row.plant_height_cm === "number" && !isNaN(row.plant_height_cm)) {
-        grouped[trKey].totalHeight += row.plant_height_cm;
-        grouped[trKey].countHeight += 1;
+        grouped[trKey].plantHeight.push(row.plant_height_cm);
       }
 
       const tillerVal =
@@ -116,44 +114,50 @@ function TreatmentComparison({ data, selectedLocation }) {
           : null;
 
       if (tillerVal !== null && !isNaN(tillerVal)) {
-        grouped[trKey].totalTillers += tillerVal;
-        grouped[trKey].countTillers += 1;
+        grouped[trKey].tillers.push(tillerVal);
       }
 
-      if (typeof row.leaves_per_plant === "number" && !isNaN(row.leaves_per_plant)) {
-        grouped[trKey].totalLeaves += row.leaves_per_plant;
-        grouped[trKey].countLeaves += 1;
+      if (typeof row.number_of_leaves === "number" && !isNaN(row.number_of_leaves)) {
+        grouped[trKey].leaves.push(row.number_of_leaves);
+      }
+
+      if (typeof row.leaf_length_cm === "number" && !isNaN(row.leaf_length_cm)) {
+        grouped[trKey].leafLength.push(row.leaf_length_cm);
+      }
+
+      if (typeof row.leaf_breadth_cm === "number" && !isNaN(row.leaf_breadth_cm)) {
+        grouped[trKey].leafBreadth.push(row.leaf_breadth_cm);
       }
     });
 
-    return Object.values(grouped)
-      .map((row) => {
-        const avgPlantHeight =
-          row.countHeight > 0
-            ? Number((row.totalHeight / row.countHeight).toFixed(1))
-            : 0;
+    const averages = Object.values(grouped).map((row) => ({
+      ...row,
+      avgPlantHeight: average(row.plantHeight),
+      avgTillers: average(row.tillers),
+      avgLeaves: average(row.leaves),
+      avgLeafLength: average(row.leafLength),
+      avgLeafBreadth: average(row.leafBreadth),
+    }));
 
-        const avgTillers =
-          row.countTillers > 0
-            ? Number((row.totalTillers / row.countTillers).toFixed(1))
-            : 0;
+    const maxHeight = maxValue(averages, "avgPlantHeight");
+    const maxTillers = maxValue(averages, "avgTillers");
+    const maxLeaves = maxValue(averages, "avgLeaves");
+    const maxLeafLength = maxValue(averages, "avgLeafLength");
+    const maxLeafBreadth = maxValue(averages, "avgLeafBreadth");
 
-        const avgLeaves =
-          row.countLeaves > 0
-            ? Number((row.totalLeaves / row.countLeaves).toFixed(1))
-            : 0;
-
-        const performanceScore =
-          avgPlantHeight * 0.5 + avgTillers * 4.0 + avgLeaves * 1.5;
-
-        return {
-          ...row,
-          avgPlantHeight,
-          avgTillers,
-          avgLeaves,
-          performanceScore: Number(performanceScore.toFixed(1)),
-        };
-      })
+    return averages
+      .map((row) => ({
+        ...row,
+        performanceScore: Number(
+          (
+            normalizedScore(row.avgPlantHeight, maxHeight) * 40 +
+            normalizedScore(row.avgTillers, maxTillers) * 25 +
+            normalizedScore(row.avgLeaves, maxLeaves) * 15 +
+            normalizedScore(row.avgLeafLength, maxLeafLength) * 10 +
+            normalizedScore(row.avgLeafBreadth, maxLeafBreadth) * 10
+          ).toFixed(1)
+        ),
+      }))
       .sort((a, b) => b.performanceScore - a.performanceScore);
   }, [biometric]);
 
@@ -372,11 +376,14 @@ function TreatmentComparison({ data, selectedLocation }) {
               <tr>
                 <th>Rank</th>
                 <th>Treatment</th>
+                <th>Performance</th>
+                <th>Score</th>
                 <th>Avg Height</th>
                 <th>Avg Tillers</th>
                 <th>Avg Leaves</th>
-                <th>Score</th>
-                <th>Status</th>
+                <th>Leaf Length</th>
+                <th>Leaf Breadth</th>
+                <th>Records</th>
               </tr>
             </thead>
             <tbody>
@@ -394,17 +401,20 @@ function TreatmentComparison({ data, selectedLocation }) {
                     <td>
                       <strong>{row.treatment}</strong>
                     </td>
-                    <td>{row.avgPlantHeight} cm</td>
-                    <td>{row.avgTillers}</td>
-                    <td>{row.avgLeaves}</td>
-                    <td>
-                      <strong>{row.performanceScore}</strong>
-                    </td>
                     <td>
                       <span className={`status-pill ${statusClass}`}>
                         {statusLabel}
                       </span>
                     </td>
+                    <td>
+                      <strong>{row.performanceScore}</strong>
+                    </td>
+                    <td>{row.avgPlantHeight} cm</td>
+                    <td>{row.avgTillers}</td>
+                    <td>{row.avgLeaves}</td>
+                    <td>{row.avgLeafLength} cm</td>
+                    <td>{row.avgLeafBreadth} cm</td>
+                    <td>{row.recordCount}</td>
                   </tr>
                 );
               })}
@@ -414,6 +424,26 @@ function TreatmentComparison({ data, selectedLocation }) {
       </section>
     </>
   );
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return Number(
+    (values.reduce((sum, value) => sum + Number(value), 0) / values.length).toFixed(2)
+  );
+}
+
+function maxValue(rows, key) {
+  const values = rows
+    .map((row) => Number(row[key]))
+    .filter((value) => !Number.isNaN(value));
+
+  return values.length ? Math.max(...values) : 0;
+}
+
+function normalizedScore(value, max) {
+  if (!max) return 0;
+  return value / max;
 }
 
 export default TreatmentComparison;

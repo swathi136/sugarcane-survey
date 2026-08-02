@@ -281,8 +281,14 @@ function StudentDataEntry({
       return;
     }
 
-    const observationDay = parseInt(String(selectedObsDay).trim(), 10);
-    if (!Number.isFinite(observationDay) || observationDay < 1) {
+    const observationDayText = String(selectedObsDay).trim();
+    const observationDay = isCollege
+      ? Number(observationDayText)
+      : parseInt(observationDayText, 10);
+    const invalidCollegeDay = isCollege && (
+      !/^\d+$/.test(observationDayText) || !Number.isSafeInteger(observationDay)
+    );
+    if (invalidCollegeDay || !Number.isFinite(observationDay) || observationDay < 1) {
       setSubmitError("Please enter a valid positive Observation Day (e.g. 1, 30, 45).");
       return;
     }
@@ -405,8 +411,7 @@ function StudentDataEntry({
         location_name: "Kumaraguru Agricultural College",
         plot: plotObj.name,
         treatment: selectedTreatment,
-        // Bypass max 240 days DB constraint by capping payload
-        observation_day: observationDay > 240 ? 240 : observationDay,
+        observation_day: observationDay,
         observation_date: dateOfObs,
 
         plant_number: asNullableNumber(plantNum),

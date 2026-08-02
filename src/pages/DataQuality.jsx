@@ -29,6 +29,7 @@ import kpiDqWeak from "../assets/images/dq_weak.svg";
 import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
+import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
 import {
   PremiumBarDefs,
   PremiumBarShape,
@@ -239,8 +240,8 @@ function DataQuality({ data, selectedLocation }) {
       if (hasValue(row.number_of_leaves))
         grouped[locationId].leavesAvailable += 1;
 
-      const day = Number(row.observation_day);
-      if (!Number.isNaN(day)) {
+      const day = toFiniteMetricOrNull(row.observation_day);
+      if (day !== null) {
         grouped[locationId].latestDay = Math.max(
           grouped[locationId].latestDay,
           day

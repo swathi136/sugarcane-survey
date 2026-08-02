@@ -93,7 +93,15 @@ function Overview({ data, selectedLocation }) {
       biometric.map((row) => row.treatment_id).filter(Boolean)
     );
 
-    const plots = new Set(biometric.map((row) => row.plot_id).filter(Boolean));
+    const locationPlots =
+      selectedLocation === "All"
+        ? data.plots || []
+        : (data.plots || []).filter(
+            (plot) => plot.location_id === selectedLocation
+          );
+    const plots = new Set(
+      locationPlots.map((plot) => plot.plot_id).filter(Boolean)
+    );
 
     const avg =
       validHeightRows.length > 0
@@ -113,7 +121,7 @@ function Overview({ data, selectedLocation }) {
       latestDay,
       openAlerts: alerts.length,
     };
-  }, [biometric, data.locations]);
+  }, [biometric, data.locations, data.plots, selectedLocation]);
 
   const locationHeightData = useMemo(() => {
     const grouped = {};

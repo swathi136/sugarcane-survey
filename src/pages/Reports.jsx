@@ -22,6 +22,7 @@ import kpiRepLatest from "../assets/images/rep_bg_latest.jpg";
 import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
+import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
 
 function Reports({ data, selectedLocation }) {
   const biometric = useMemo(() => {
@@ -69,19 +70,19 @@ function Reports({ data, selectedLocation }) {
     );
 
     const heightValues = biometric
-      .map((row) => Number(row.plant_height_cm))
-      .filter((value) => !Number.isNaN(value));
+      .map((row) => toFiniteMetricOrNull(row.plant_height_cm))
+      .filter((value) => value !== null);
 
     const tillerValues = biometric
-      .map((row) => Number(row.number_of_tillers))
-      .filter((value) => !Number.isNaN(value));
+      .map((row) => toFiniteMetricOrNull(row.number_of_tillers))
+      .filter((value) => value !== null);
 
     const latestDay =
       biometric.length > 0
         ? Math.max(
             ...biometric
-              .map((row) => Number(row.observation_day))
-              .filter((value) => !Number.isNaN(value))
+              .map((row) => toFiniteMetricOrNull(row.observation_day))
+              .filter((value) => value !== null)
           )
         : 0;
 
@@ -121,14 +122,14 @@ function Reports({ data, selectedLocation }) {
 
       grouped[locationId].records += 1;
 
-      const height = Number(row.plant_height_cm);
-      const tillers = Number(row.number_of_tillers);
-      const day = Number(row.observation_day);
+      const height = toFiniteMetricOrNull(row.plant_height_cm);
+      const tillers = toFiniteMetricOrNull(row.number_of_tillers);
+      const day = toFiniteMetricOrNull(row.observation_day);
 
-      if (!Number.isNaN(height)) grouped[locationId].heightValues.push(height);
-      if (!Number.isNaN(tillers)) grouped[locationId].tillerValues.push(tillers);
+      if (height !== null) grouped[locationId].heightValues.push(height);
+      if (tillers !== null) grouped[locationId].tillerValues.push(tillers);
 
-      if (!Number.isNaN(day)) {
+      if (day !== null) {
         grouped[locationId].latestDay = Math.max(
           grouped[locationId].latestDay,
           day
@@ -166,13 +167,13 @@ function Reports({ data, selectedLocation }) {
 
       grouped[key].records += 1;
 
-      const height = Number(row.plant_height_cm);
-      const tillers = Number(row.number_of_tillers);
-      const leaves = Number(row.number_of_leaves);
+      const height = toFiniteMetricOrNull(row.plant_height_cm);
+      const tillers = toFiniteMetricOrNull(row.number_of_tillers);
+      const leaves = toFiniteMetricOrNull(row.number_of_leaves);
 
-      if (!Number.isNaN(height)) grouped[key].heightValues.push(height);
-      if (!Number.isNaN(tillers)) grouped[key].tillerValues.push(tillers);
-      if (!Number.isNaN(leaves)) grouped[key].leafValues.push(leaves);
+      if (height !== null) grouped[key].heightValues.push(height);
+      if (tillers !== null) grouped[key].tillerValues.push(tillers);
+      if (leaves !== null) grouped[key].leafValues.push(leaves);
     });
 
     return Object.values(grouped)
@@ -202,25 +203,25 @@ function Reports({ data, selectedLocation }) {
 
   const alertSummary = useMemo(() => {
     const heightValues = biometric
-      .map((row) => Number(row.plant_height_cm))
-      .filter((value) => !Number.isNaN(value));
+      .map((row) => toFiniteMetricOrNull(row.plant_height_cm))
+      .filter((value) => value !== null);
 
     const tillerValues = biometric
-      .map((row) => Number(row.number_of_tillers))
-      .filter((value) => !Number.isNaN(value));
+      .map((row) => toFiniteMetricOrNull(row.number_of_tillers))
+      .filter((value) => value !== null);
 
     const avgHeight = average(heightValues);
     const avgTillers = average(tillerValues);
 
     const lowGrowthCount = biometric.filter((row) => {
-      const height = Number(row.plant_height_cm);
-      return !Number.isNaN(height) && avgHeight > 0 && height < avgHeight * 0.75;
+      const height = toFiniteMetricOrNull(row.plant_height_cm);
+      return height !== null && avgHeight > 0 && height < avgHeight * 0.75;
     }).length;
 
     const weakTilleringCount = biometric.filter((row) => {
-      const tillers = Number(row.number_of_tillers);
+      const tillers = toFiniteMetricOrNull(row.number_of_tillers);
       return (
-        !Number.isNaN(tillers) && avgTillers > 0 && tillers < avgTillers * 0.7
+        tillers !== null && avgTillers > 0 && tillers < avgTillers * 0.7
       );
     }).length;
 
@@ -1132,8 +1133,8 @@ function average(values) {
 
 function sumColumn(rows, columnName) {
   const total = (rows || []).reduce((sum, row) => {
-    const value = Number(row[columnName]);
-    return Number.isNaN(value) ? sum : sum + value;
+    const value = toFiniteMetricOrNull(row[columnName]);
+    return value === null ? sum : sum + value;
   }, 0);
 
   return Number(total.toFixed(2));

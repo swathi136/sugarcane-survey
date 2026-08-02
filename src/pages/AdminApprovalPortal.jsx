@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Edit3,
   Eye,
+  FileText,
   Loader2,
   RefreshCw,
   Save,
@@ -12,6 +13,9 @@ import {
   ShieldCheck,
   XCircle,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { supabase } from "../utils/supabaseClient";
 
 const TABLES = {
@@ -179,9 +183,35 @@ function normalizeRow(sourceTable, row) {
   };
 }
 
-const cardStyle = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 18 };
-const buttonStyle = { border: 0, borderRadius: 8, padding: "8px 12px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 };
+const EXPORT_IDENTITY_COLUMNS = ["source_location", "source_table"];
+
+const exportValue = (value) => {
+  if (isAbsent(value)) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return value;
+};
+
+function exportEntryRows(entry) {
+  return [
+    ...EXPORT_IDENTITY_COLUMNS.map((field) => ({ Field: labelFor(field), Value: exportValue(entry[field]) })),
+    ...Object.entries(entry.original_row || {}).map(([field, value]) => ({ Field: labelFor(field), Value: exportValue(value) })),
+  ];
+}
+
+const exportFilename = (entry, extension) => {
+  const safePart = (value) => String(value || "entry").trim().replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "");
+  return `${safePart(entry.source_location)}-${safePart(entry.plot)}-${safePart(entry.id)}.${extension}`;
+};
+
+const cardStyle = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 18, boxShadow: "0 4px 18px rgba(15, 23, 42, 0.04)" };
+const buttonStyle = { border: "1px solid transparent", borderRadius: 9, padding: "8px 12px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" };
 const inputStyle = { width: "100%", padding: "9px 10px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 };
+const tableCellStyle = { padding: "13px 12px", borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const statusStyles = {
+  Pending: { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" },
+  Approved: { background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" },
+  Rejected: { background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" },
+};
 
 function JsonRows({ value }) {
   const rows = parseJsonArray(value);
@@ -232,6 +262,7 @@ function AdminApprovalPortal({ authSession, onBackToDashboard, onSignOut }) {
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [busyKey, setBusyKey] = useState("");
+  const [exporting, setExporting] = useState("");
 
   const fetchSubmissions = useCallback(async () => {
     setLoading(true);
@@ -451,10 +482,76 @@ function AdminApprovalPortal({ authSession, onBackToDashboard, onSignOut }) {
     return groups;
   }, {});
 
+  const downloadExcel = (entry) => {
+    const exportKey = `excel:${entry.source_table}:${entry.id}`;
+    setExporting(exportKey);
+    setActionError("");
+    try {
+      const columns = [...EXPORT_IDENTITY_COLUMNS, ...Object.keys(entry.original_row || {})];
+      const values = columns.map((column) => exportValue(
+        EXPORT_IDENTITY_COLUMNS.includes(column) ? entry[column] : entry.original_row?.[column],
+      ));
+      const worksheet = XLSX.utils.aoa_to_sheet([columns.map(labelFor), values]);
+      worksheet["!autofilter"] = { ref: worksheet["!ref"] };
+      worksheet["!cols"] = columns.map((column, index) => ({
+        wch: Math.min(60, Math.max(14, labelFor(column).length + 2, String(values[index] ?? "").length + 2)),
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Submission");
+      XLSX.writeFile(workbook, exportFilename(entry, "xlsx"), { compression: true });
+      setActionMessage(`Excel report downloaded for ${entry.source_location} / ${displayValue(entry.plot)}.`);
+    } catch (error) {
+      setActionError(error.message || "Unable to create the Excel report.");
+    } finally {
+      setExporting("");
+    }
+  };
+
+  const downloadPdf = (entry) => {
+    const exportKey = `pdf:${entry.source_table}:${entry.id}`;
+    setExporting(exportKey);
+    setActionError("");
+    try {
+      const rows = exportEntryRows(entry);
+      const document = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      document.setFontSize(18);
+      document.text(`${entry.source_location} Field Submission`, 32, 32);
+      document.setFontSize(9);
+      document.setTextColor(71, 85, 105);
+      document.text(`Generated: ${new Date().toLocaleString()} | Entry ID: ${entry.id}`, 32, 48);
+      autoTable(document, {
+        startY: 60,
+        head: [["Field", "Value"]],
+        body: rows.map((row) => [row.Field, String(row.Value ?? "")]),
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 5, overflow: "linebreak", valign: "top" },
+        headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+        margin: { left: 32, right: 32 },
+        columnStyles: { 0: { cellWidth: 170, fontStyle: "bold" }, 1: { cellWidth: "auto" } },
+        didDrawPage: ({ pageNumber }) => {
+          document.setFontSize(8);
+          document.setTextColor(100);
+          document.text(`Page ${pageNumber}`, document.internal.pageSize.getWidth() - 70, document.internal.pageSize.getHeight() - 16);
+        },
+      });
+      document.save(exportFilename(entry, "pdf"));
+      setActionMessage(`PDF report downloaded for ${entry.source_location} / ${displayValue(entry.plot)}.`);
+    } catch (error) {
+      setActionError(error.message || "Unable to create the PDF report.");
+    } finally {
+      setExporting("");
+    }
+  };
+
+  const downloadEntry = (entry, format) => {
+    if (format === "pdf") downloadPdf(entry);
+    if (format === "excel") downloadExcel(entry);
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 32px", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="admin-approval-page" style={{ minHeight: "100vh", background: "linear-gradient(145deg, #f8fafc 0%, #f0fdf4 100%)", padding: "28px 32px 48px", fontFamily: "Inter, system-ui, sans-serif" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <header style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+        <header className="admin-approval-header" style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 16, flexWrap: "wrap", borderTop: "4px solid #15803d" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {onBackToDashboard && <button type="button" style={{ ...buttonStyle, background: "#f1f5f9" }} onClick={onBackToDashboard}><ArrowLeft size={16} /> Dashboard</button>}
             <div><div style={{ color: "#15803d", fontWeight: 800, fontSize: 12 }}><ShieldCheck size={15} /> VERIFIED ADMIN WORKFLOW</div><h1 style={{ margin: "3px 0 0", fontSize: 21 }}>Field Submissions Approval</h1></div>
@@ -467,27 +564,30 @@ function AdminApprovalPortal({ authSession, onBackToDashboard, onSignOut }) {
 
         {authorized && <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 16 }}>
-            {Object.entries(counts).map(([label, count]) => <div key={label} style={cardStyle}><div style={{ color: "#64748b", fontSize: 12 }}>{label}</div><div style={{ fontSize: 30, fontWeight: 800 }}>{count}</div></div>)}
+            {Object.entries(counts).map(([label, count]) => <div className="admin-summary-card" key={label} style={{ ...cardStyle, padding: "16px 18px" }}><div style={{ color: "#64748b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em" }}>{label}</div><div style={{ fontSize: 30, fontWeight: 800, color: label === "Approved" ? "#166534" : label === "Rejected" ? "#991b1b" : label === "Pending" ? "#9a3412" : "#0f172a", marginTop: 3 }}>{count}</div></div>)}
           </div>
 
           {Object.keys(tableErrors).length > 0 && <div style={{ ...cardStyle, marginBottom: 16, color: "#92400e" }}><b>Some tables could not be loaded:</b>{Object.entries(tableErrors).map(([table, message]) => <div key={table}>{table}: {message}</div>)}</div>}
           {actionMessage && <div style={{ ...cardStyle, marginBottom: 16, color: "#166534" }}><CheckCircle2 size={18} /> {actionMessage}</div>}
           {actionError && <div style={{ ...cardStyle, marginBottom: 16, color: "#991b1b" }}><AlertCircle size={18} /> {actionError}</div>}
 
-          <div style={{ ...cardStyle, display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+          <div className="admin-filter-bar" style={{ ...cardStyle, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
             <div style={{ position: "relative", flex: "1 1 260px" }}><Search size={16} style={{ position: "absolute", left: 10, top: 11, color: "#94a3b8" }} /><input style={{ ...inputStyle, paddingLeft: 34 }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search location, plot, or treatment" /></div>
             <select style={{ ...inputStyle, width: 180 }} value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}><option value="ALL">All locations</option><option>College</option><option>Athani</option><option>Anthiyur</option></select>
             <select style={{ ...inputStyle, width: 160 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="ALL">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
             <button type="button" disabled={loading} style={{ ...buttonStyle, background: "#e0f2fe", color: "#0369a1" }} onClick={fetchSubmissions}><RefreshCw size={16} /> Refresh</button>
           </div>
 
-          <div style={{ ...cardStyle, overflowX: "auto" }}>
+          <div style={{ ...cardStyle, overflow: "hidden", padding: 0 }}>
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><div><h2 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>Submission Records</h2><p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>Review and manage individual field submissions</p></div><span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 999, padding: "6px 10px", fontSize: 12, fontWeight: 800 }}>{filteredSubmissions.length} shown</span></div>
+            <div style={{ overflowX: "auto" }}>
             {loading ? <div style={{ padding: 35, textAlign: "center" }}><Loader2 size={24} /> Loading submissions…</div> : filteredSubmissions.length === 0 ? <div style={{ padding: 35, textAlign: "center", color: "#64748b" }}>No submissions found.</div> :
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}><thead><tr>{["Location", "Plot", "Treatment", "Observation Day", "Observation Date", "Submitted Date", "Status", "Actions"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #cbd5e1" }}>{heading}</th>)}</tr></thead><tbody>
+              <table className="admin-submissions-table" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}><thead><tr>{["Location", "Plot", "Treatment", "Observation Day", "Observation Date", "Submitted Date", "Status", "Actions"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: "11px 12px", borderBottom: "1px solid #cbd5e1", background: "#f8fafc", color: "#475569", fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead><tbody>
                 {filteredSubmissions.map((entry) => {
                   const isBusy = busyKey.endsWith(`${entry.source_table}:${entry.id}`);
-                  return <tr key={`${entry.source_table}:${entry.id}`}><td style={{ padding: 10 }}>{entry.source_location}</td><td style={{ padding: 10 }}>{displayValue(entry.plot)}</td><td style={{ padding: 10 }}>{displayValue(entry.treatment)}</td><td style={{ padding: 10 }}>{displayValue(entry.observation_day)}</td><td style={{ padding: 10 }}>{displayValue(entry.observation_date)}</td><td style={{ padding: 10 }}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}</td><td style={{ padding: 10, fontWeight: 800 }}>{entry.status}</td><td style={{ padding: 10 }}><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  return <tr key={`${entry.source_table}:${entry.id}`}><td style={{ ...tableCellStyle, fontWeight: 800, color: "#166534" }}>{entry.source_location}</td><td style={tableCellStyle}>{displayValue(entry.plot)}</td><td style={tableCellStyle}>{displayValue(entry.treatment)}</td><td style={tableCellStyle}>{displayValue(entry.observation_day)}</td><td style={tableCellStyle}>{displayValue(entry.observation_date)}</td><td style={{ ...tableCellStyle, whiteSpace: "nowrap", color: "#475569" }}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}</td><td style={tableCellStyle}><span style={{ ...(statusStyles[entry.status] || statusStyles.Pending), display: "inline-flex", borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 800 }}>{entry.status}</span></td><td style={tableCellStyle}><div className="admin-row-actions" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button type="button" style={{ ...buttonStyle, background: "#e0f2fe" }} onClick={() => setSelectedSubmission(entry)}><Eye size={14} /> Details</button>
+                    <label style={{ ...buttonStyle, background: "#dcfce7", color: "#166534", padding: "0 8px" }}><FileText size={14} /><select aria-label={`Download ${entry.source_location} entry`} disabled={Boolean(exporting)} value="" onChange={(event) => downloadEntry(entry, event.target.value)} style={{ border: 0, background: "transparent", color: "inherit", fontWeight: 700, padding: "8px 2px", cursor: "pointer" }}><option value="" disabled>{exporting.endsWith(`${entry.source_table}:${entry.id}`) ? "Preparing..." : "Download"}</option><option value="pdf">PDF</option><option value="excel">Excel</option></select></label>
                     <button type="button" style={{ ...buttonStyle, background: "#f1f5f9" }} onClick={() => openEdit(entry)}><Edit3 size={14} /> Edit</button>
                     <button type="button" disabled={isBusy || entry.status === "Approved"} style={{ ...buttonStyle, background: "#dcfce7", color: "#166534" }} onClick={() => approve(entry)}>Approve</button>
                     <button type="button" disabled={isBusy || entry.status === "Rejected"} style={{ ...buttonStyle, background: "#fee2e2", color: "#991b1b" }} onClick={() => { setRejectingSubmission(entry); setRejectionFeedback(""); setRejectionError(""); }}>Reject</button>
@@ -495,6 +595,7 @@ function AdminApprovalPortal({ authSession, onBackToDashboard, onSignOut }) {
                   </div></td></tr>;
                 })}
               </tbody></table>}
+            </div>
           </div>
         </>}
       </div>

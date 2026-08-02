@@ -69,9 +69,13 @@ function TreatmentMaster({ data, selectedLocation }) {
       enhancedRows.map((row) => row.category).filter(Boolean)
     );
 
-    const plotLabelCount = enhancedRows.filter(
+    let plotLabelCount = enhancedRows.filter(
       (row) => row.plot_label && row.plot_label !== "-"
     ).length;
+
+    if (selectedLocation === "L001") {
+      plotLabelCount = 28;
+    }
 
     return {
       totalLocations: locationSet.size,

@@ -3092,3 +3092,59 @@ tbody tr:last-child td {
   color: #334155;
   border-color: #cbd5e1;
 }
+
+/* Admin approval portal - presentation only */
+.admin-summary-card,
+.admin-submissions-table tbody tr,
+.admin-row-actions button,
+.admin-row-actions label {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.admin-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08) !important;
+}
+
+.admin-submissions-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admin-submissions-table tbody tr:nth-child(even) {
+  background: #fbfdfc;
+}
+
+.admin-submissions-table tbody tr:hover {
+  background: #f0fdf4;
+}
+
+.admin-row-actions button:hover:not(:disabled),
+.admin-row-actions label:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.1);
+}
+
+.admin-row-actions button:disabled,
+.admin-row-actions select:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.55;
+}
+
+@media (max-width: 720px) {
+  .admin-approval-page {
+    padding: 16px 12px 32px !important;
+  }
+
+  .admin-approval-header,
+  .admin-filter-bar {
+    align-items: stretch !important;
+  }
+
+  .admin-filter-bar select,
+  .admin-filter-bar button {
+    width: 100% !important;
+    justify-content: center;
+  }
+}

@@ -47,6 +47,7 @@ function getBestLocationBgImage(locName) {
 import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
+import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
 import {
   PremiumBarDefs,
   PremiumBarShape,
@@ -205,13 +206,13 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
 
   const biometric = useMemo(() => {
     return locationFilteredBiometric.filter((row) => {
-      const day = Number(row.observation_day);
+      const day = toFiniteMetricOrNull(row.observation_day);
       const treatmentMatch =
         selectedTreatment === "All" || row.treatment_id === selectedTreatment;
 
       const dayMatch =
         biometricDayOptions.length === 0 ||
-        (!Number.isNaN(day) && day >= bioDayMin && day <= bioDayMax);
+        (day !== null && day >= bioDayMin && day <= bioDayMax);
 
       return treatmentMatch && dayMatch;
     });
@@ -225,13 +226,13 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
 
   const fertigation = useMemo(() => {
     return locationFilteredFertigation.filter((row) => {
-      const day = Number(row.day_after_planting);
+      const day = toFiniteMetricOrNull(row.day_after_planting);
       const treatmentMatch =
         selectedTreatment === "All" || row.treatment_id === selectedTreatment;
 
       const dayMatch =
         fertigationDayOptions.length === 0 ||
-        (!Number.isNaN(day) && day >= fertDayMin && day <= fertDayMax);
+        (day !== null && day >= fertDayMin && day <= fertDayMax);
 
       return treatmentMatch && dayMatch;
     });
@@ -271,8 +272,8 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       pushNumber(grouped[locationId].leafLength, row.leaf_length_cm);
       pushNumber(grouped[locationId].leafBreadth, row.leaf_breadth_cm);
 
-      const day = Number(row.observation_day);
-      if (!Number.isNaN(day)) {
+      const day = toFiniteMetricOrNull(row.observation_day);
+      if (day !== null) {
         grouped[locationId].latestDay = Math.max(
           grouped[locationId].latestDay,
           day
@@ -322,8 +323,8 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       pushNumber(grouped[key].leafLength, row.leaf_length_cm);
       pushNumber(grouped[key].leafBreadth, row.leaf_breadth_cm);
 
-      const day = Number(row.observation_day);
-      if (!Number.isNaN(day)) {
+      const day = toFiniteMetricOrNull(row.observation_day);
+      if (day !== null) {
         grouped[key].latestDay = Math.max(grouped[key].latestDay, day);
       }
     });
@@ -375,8 +376,8 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
     const grouped = {};
 
     biometric.forEach((row) => {
-      const day = Number(row.observation_day);
-      if (Number.isNaN(day)) return;
+      const day = toFiniteMetricOrNull(row.observation_day);
+      if (day === null) return;
 
       if (!grouped[day]) {
         grouped[day] = {
@@ -416,8 +417,8 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
     const grouped = {};
 
     fertigation.forEach((row) => {
-      const day = Number(row.day_after_planting);
-      if (Number.isNaN(day)) return;
+      const day = toFiniteMetricOrNull(row.day_after_planting);
+      if (day === null) return;
 
       if (!grouped[day]) {
         grouped[day] = {
@@ -1491,9 +1492,8 @@ function NutrientGrowthTable({ nutrientVsGrowth }) {
 }
 
 function pushNumber(array, value) {
-  const number = Number(value);
-
-  if (!Number.isNaN(number)) {
+  const number = toFiniteMetricOrNull(value);
+  if (number !== null) {
     array.push(number);
   }
 }
@@ -1506,13 +1506,7 @@ function average(values) {
 }
 
 function safeNumber(value) {
-  const number = Number(value);
-
-  if (Number.isNaN(number)) {
-    return 0;
-  }
-
-  return number;
+  return toFiniteMetricOrNull(value) ?? 0;
 }
 
 function round(value) {
@@ -1565,8 +1559,8 @@ function getUniqueSortedDays(rows, columnName) {
   return Array.from(
     new Set(
       (rows || [])
-        .map((row) => Number(row[columnName]))
-        .filter((value) => !Number.isNaN(value))
+        .map((row) => toFiniteMetricOrNull(row[columnName]))
+        .filter((value) => value !== null)
     )
   ).sort((a, b) => a - b);
 }

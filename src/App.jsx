@@ -1,6 +1,6 @@
 import ComparativeAnalysis from "./pages/ComparativeAnalysis";
 import DataQuality from "./pages/DataQuality";/*data-quality*/
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, Sprout, Mail, Lock, GraduationCap, ShieldCheck, Loader2, CheckCircle2, AlertCircle, MailCheck, KeyRound, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./utils/supabaseClient";
 import "./App.css";
@@ -11,6 +11,10 @@ import ErrorScreen from "./components/ErrorScreen";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import { loadDashboardData } from "./utils/dataLoader";
+import { loadApprovedCollegeData } from "./services/loadApprovedCollegeData";
+import { normalizeApprovedCollegeRows } from "./utils/normalizers/normalizeApprovedCollegeRows";
+import { mergeCollegeDashboardData } from "./utils/mergeCollegeDashboardData";
+import { buildCollegePlotLookup } from "./utils/college/buildCollegePlotLookup";
 
 import Overview from "./pages/Overview";
 import TreatmentMaster from "./pages/TreatmentMaster";
@@ -25,6 +29,46 @@ import LandingPage from "./components/LandingPage";
 
 import { sendRejectionNotification } from "./utils/emailService";
 import { fetchAllSubmissions, updateSubmissionStatus, updateSubmissionData } from "./services/fieldEntryService";
+
+async function loadDashboardDataWithApprovedCollege(authContext) {
+  const csvData = await loadDashboardData();
+
+  if (!isSupabaseConfigured) return csvData;
+
+  const approvedResult = await loadApprovedCollegeData();
+  if (approvedResult.error) {
+    if (import.meta.env.DEV) {
+      console.error(
+        "Approved College dashboard data could not be loaded; using the CSV baseline.",
+        approvedResult.error,
+      );
+    }
+    return csvData;
+  }
+
+  const collegePlotLookup = buildCollegePlotLookup(csvData.plots || []);
+  const normalized = normalizeApprovedCollegeRows(approvedResult.rows, collegePlotLookup);
+  const merged = mergeCollegeDashboardData(csvData, normalized);
+
+  if (import.meta.env.DEV) {
+    console.info("Approved College dashboard merge", {
+      authInitialized: authContext.initialized,
+      authenticatedUserId: authContext.userId || null,
+      csvBiometricCount: csvData.biometric?.length || 0,
+      csvFertigationCount: csvData.fertigation?.length || 0,
+      approvedFetchCount: approvedResult.rows.length,
+      approvedRowIds: approvedResult.rows.map((row) => row.id),
+      normalizedBiometricCount: normalized.biometric.length,
+      normalizedFertigationCount: normalized.fertigation.length,
+      ...merged.diagnostics,
+      excludedFields: normalized.diagnostics,
+      finalBiometricCount: merged.data.biometric.length,
+      finalFertigationCount: merged.data.fertigation.length,
+    });
+  }
+
+  return merged.data;
+}
 
 function App() {
   const [view, setView] = useState("landing");
@@ -41,6 +85,7 @@ function App() {
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [unconfirmedEmail, setUnconfirmedEmail] = useState("");
   const [authSession, setAuthSession] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
@@ -81,172 +126,6 @@ function App() {
     setSubmissionsList((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: "APPROVED" } : s))
     );
-
-    const approvedItem = targetItem;
-    if (approvedItem && data) {
-      // 1. Biometric Calculations
-      const pHeight = parseFloat(approvedItem.plantHeight) || 0;
-      const numTillers = parseInt(approvedItem.numTillers, 10) || 0;
-      const numLeaves = parseInt(approvedItem.numLeaves, 10) || 0;
-      const lLength = parseFloat(approvedItem.leafLength) || 0;
-      const lBreadth = parseFloat(approvedItem.leafBreadth) || 0;
-      const nNodes = parseInt(approvedItem.numNodes, 10) || 0;
-      const nLength = parseFloat(approvedItem.nodeLength) || 0;
-      const mCaneCount = parseInt(approvedItem.millableCaneCount, 10) || 0;
-      const pCount1m = parseInt(approvedItem.plantCount1m, 10) || 0;
-      const pCount5m = parseInt(approvedItem.plantCount5m, 10) || 0;
-      const pCount15m = parseInt(approvedItem.plantCount15m, 10) || 0;
-      const germPct = parseFloat(approvedItem.germinationPct) || 0;
-      const obsDayNum = parseInt(String(approvedItem.obsDay || "30").replace(/[^0-9]/g, ""), 10) || 30;
-
-      // Derived Biometric Calculations
-      const leafAreaCalc = parseFloat((lLength * lBreadth * 0.75).toFixed(2));
-      const tillerRatioCalc = parseFloat((numTillers / Math.max(1, pCount1m || 1)).toFixed(2));
-
-      const newBioObs = {
-        observation_id: `BIO_NEW_${Date.now()}`,
-        location_id: approvedItem.locationId || "L001",
-        location_name: approvedItem.locationName,
-        plot_id: approvedItem.plotName,
-        plot_name: approvedItem.plotName,
-        treatment_id: approvedItem.treatment,
-        observation_day: obsDayNum,
-        date_of_observation: approvedItem.obsDate || approvedItem.date || new Date().toISOString().split("T")[0],
-
-        // Snake_case & camelCase aliases for dashboard views
-        plant_height: pHeight,
-        plant_height_cm: pHeight,
-        plantHeight: pHeight,
-
-        tiller_count: numTillers,
-        number_of_tillers: numTillers,
-        numTillers: numTillers,
-
-        leaf_count: numLeaves,
-        number_of_leaves: numLeaves,
-        numLeaves: numLeaves,
-
-        leaf_height: lLength,
-        leaf_length_cm: lLength,
-        leafLength: lLength,
-
-        leaf_width: lBreadth,
-        leaf_breadth_cm: lBreadth,
-        leafBreadth: lBreadth,
-
-        leaf_area: leafAreaCalc,
-        leafArea: leafAreaCalc,
-
-        number_of_nodes: nNodes,
-        numNodes: nNodes,
-
-        node_length: nLength,
-        node_length_cm: nLength,
-        nodeLength: nLength,
-
-        millable_cane_count: mCaneCount,
-        millableCaneCount: mCaneCount,
-
-        plant_count_1m: pCount1m,
-        plantCount1m: pCount1m,
-
-        plant_count_5m: pCount5m,
-        plantCount5m: pCount5m,
-
-        plant_count_15m: pCount15m,
-        plantCount15m: pCount15m,
-
-        germination_pct: germPct,
-        germinationPct: germPct,
-
-        tiller_ratio: tillerRatioCalc,
-        tillerRatio: tillerRatioCalc,
-
-        customBiometrics: approvedItem.customBiometrics || "",
-      };
-
-      // 2. Fertigation Nutrient Calculations
-      const wPotash = parseFloat(approvedItem.whitePotashKg) || 0;
-      const urea = parseFloat(approvedItem.ureaKg) || 0;
-      const map = parseFloat(approvedItem.mapKg) || 0;
-      const dap = parseFloat(approvedItem.dapKg) || 0;
-      const ssp = parseFloat(approvedItem.sspKg) || 0;
-      const mop = parseFloat(approvedItem.mopKg) || 0;
-      const mnMix = parseFloat(approvedItem.mnMixture) || 0;
-
-      let nKgVal = parseFloat(approvedItem.nKg) || 0;
-      if (!nKgVal && (urea || dap || map)) {
-        nKgVal = parseFloat(((urea * 0.46) + (dap * 0.18) + (map * 0.11)).toFixed(2));
-      }
-
-      let p2o5KgVal = parseFloat(approvedItem.p2o5Kg) || 0;
-      if (!p2o5KgVal && (dap || map || ssp)) {
-        p2o5KgVal = parseFloat(((dap * 0.46) + (map * 0.52) + (ssp * 0.16)).toFixed(2));
-      }
-
-      let k2oKgVal = parseFloat(approvedItem.k2oKg) || 0;
-      if (!k2oKgVal && (wPotash || mop)) {
-        k2oKgVal = parseFloat(((wPotash * 0.60) + (mop * 0.60)).toFixed(2));
-      }
-
-      const newFertSched = {
-        schedule_id: `FERT_NEW_${Date.now()}`,
-        location_id: approvedItem.locationId || "L001",
-        location_name: approvedItem.locationName,
-        plot_id: approvedItem.plotName,
-        plot_name: approvedItem.plotName,
-        treatment_id: approvedItem.treatment,
-        observation_day: obsDayNum,
-        date_of_observation: approvedItem.fertDate || approvedItem.obsDate || approvedItem.date,
-
-        white_potash_kg: wPotash,
-        whitePotashKg: wPotash,
-
-        n_kg: nKgVal,
-        nKg: nKgVal,
-
-        p2o5_kg: p2o5KgVal,
-        p2o5Kg: p2o5KgVal,
-
-        k2o_kg: k2oKgVal,
-        k2oKg: k2oKgVal,
-
-        mn_mixture: mnMix,
-        mnMixture: mnMix,
-
-        urea_kg: urea,
-        ureaKg: urea,
-
-        map_kg: map,
-        mapKg: map,
-
-        dap_kg: dap,
-        dapKg: dap,
-
-        ssp_kg: ssp,
-        sspKg: ssp,
-
-        mop_kg: mop,
-        mopKg: mop,
-
-        customFertigation: approvedItem.customFertigation || "",
-      };
-
-      setData((prevData) => {
-        const prevBio = prevData?.biometric || [];
-        const prevBioObs = prevData?.biometricObservations || [];
-        const prevFert = prevData?.fertigation || [];
-        const prevFertSched = prevData?.fertigationSchedule || [];
-
-        return {
-          ...prevData,
-          biometric: [newBioObs, ...prevBio],
-          biometricObservations: [newBioObs, ...prevBioObs],
-          fertigation: [newFertSched, ...prevFert],
-          fertigationSchedule: [newFertSched, ...prevFertSched],
-        };
-      });
-    }
   };
 
   const handleRejectSubmission = async (id, feedback = "") => {
@@ -306,19 +185,29 @@ function App() {
   };
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      setAuthInitialized(true);
+      return;
+    }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAuthSession(session);
+    let active = true;
+
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (!active) return;
+      if (sessionError && import.meta.env.DEV) {
+        console.error("Supabase session initialization failed", sessionError.message);
       }
+      setAuthSession(session || null);
+      setAuthInitialized(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthSession(session);
+      setAuthInitialized(true);
     });
 
     return () => {
+      active = false;
       subscription?.unsubscribe();
     };
   }, []);
@@ -515,28 +404,43 @@ function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const dashboardLoadSequence = useRef(0);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
+  const reloadDashboardData = useCallback(async () => {
+    const requestSequence = dashboardLoadSequence.current + 1;
+    dashboardLoadSequence.current = requestSequence;
 
-        const result = await loadDashboardData();
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await loadDashboardDataWithApprovedCollege({
+        initialized: authInitialized,
+        userId: authSession?.user?.id || null,
+      });
+
+      if (requestSequence === dashboardLoadSequence.current) {
         setData(result);
-      } catch (err) {
+      }
+    } catch (err) {
+      if (requestSequence === dashboardLoadSequence.current) {
         console.error("Dashboard data loading error:", err);
         setError(
           err?.message ||
             "Unable to load dashboard data. Please check the CSV files."
         );
-      } finally {
+      }
+    } finally {
+      if (requestSequence === dashboardLoadSequence.current) {
         setLoading(false);
       }
     }
+  }, [authInitialized, authSession?.user?.id]);
 
-    fetchData();
-  }, []);
+  useEffect(() => {
+    if (!authInitialized) return;
+    reloadDashboardData();
+  }, [authInitialized, authSession?.user?.id, view, reloadDashboardData]);
 
   const pageInfo = useMemo(() => {
     const info = {
