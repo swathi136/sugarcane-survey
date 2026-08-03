@@ -18,6 +18,7 @@ import kpiSaTypesImg from "../assets/images/sa_types_alert.svg";
 
 function SmartAlerts({ data, selectedLocation }) {
   const [alertType, setAlertType] = useState("All");
+  const serverAlerts = data.serverResultsByLocation?.[selectedLocation]?.smartAlerts?.alerts;
 
   const biometric = useMemo(() => {
     if (selectedLocation === "All") return data.biometric;
@@ -30,6 +31,7 @@ function SmartAlerts({ data, selectedLocation }) {
   }, [data.fertigation, selectedLocation]);
 
   const generatedAlerts = useMemo(() => {
+    if (serverAlerts) return serverAlerts.map((alert, index) => ({ ...alert, id: `SERVER-${index + 1}` }));
     const alerts = [];
 
     // -------------------------------
@@ -153,7 +155,7 @@ function SmartAlerts({ data, selectedLocation }) {
       });
 
     return alerts;
-  }, [biometric, fertigation, data.plots, selectedLocation]);
+  }, [biometric, fertigation, data.plots, selectedLocation, serverAlerts]);
 
   const filteredAlerts = useMemo(() => {
     if (alertType === "All") return generatedAlerts;

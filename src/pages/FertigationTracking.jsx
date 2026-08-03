@@ -1,5 +1,6 @@
 import { getLocationName } from "../utils/formatters";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadFertigationTrackingResults } from "../services/dashboardQueryService";
 import {
   BarChart,
   Bar,
@@ -79,6 +80,16 @@ function FertilizerBarTooltip({ active, payload, label }) {
 
 function FertigationTracking({ data, selectedLocation }) {
   const [selectedTreatment, setSelectedTreatment] = useState("All");
+  const [serverView, setServerView] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setServerView(null);
+    loadFertigationTrackingResults(selectedLocation, selectedTreatment)
+      .then((result) => { if (active) setServerView(result); })
+      .catch((error) => { if (import.meta.env.DEV) console.error("Server fertigation query failed", error); });
+    return () => { active = false; };
+  }, [selectedLocation, selectedTreatment]);
 
   const locationFilteredData = useMemo(() => {
     if (selectedLocation === "All") return data.fertigation;
@@ -89,6 +100,7 @@ function FertigationTracking({ data, selectedLocation }) {
   }, [data.fertigation, selectedLocation]);
 
   const treatmentOptions = useMemo(() => {
+    if (serverView?.treatments) return ["All", ...serverView.treatments];
     const treatments = new Set(
       locationFilteredData.map((row) => row.treatment_id).filter(Boolean)
     );
@@ -98,7 +110,7 @@ function FertigationTracking({ data, selectedLocation }) {
       const numB = Number(String(b).replace("T", ""));
       return numA - numB;
     })];
-  }, [locationFilteredData]);
+  }, [locationFilteredData, serverView]);
 
   const filteredRows = useMemo(() => {
     if (selectedTreatment === "All") return locationFilteredData;
@@ -109,6 +121,7 @@ function FertigationTracking({ data, selectedLocation }) {
   }, [locationFilteredData, selectedTreatment]);
 
   const summary = useMemo(() => {
+    if (serverView?.summary) return serverView.summary;
     const safeSum = (key) =>
       filteredRows.reduce((sum, row) => {
         const value = typeof row[key] === "number" ? row[key] : 0;
@@ -133,9 +146,10 @@ function FertigationTracking({ data, selectedLocation }) {
       totalUrea: Number(safeSum("urea_kg").toFixed(2)),
       totalPotash: Number(safeSum("white_potash_kg").toFixed(2)),
     };
-  }, [filteredRows]);
+  }, [filteredRows, serverView]);
 
   const npkTrendData = useMemo(() => {
+    if (serverView?.trend) return serverView.trend;
     const grouped = {};
 
     filteredRows.forEach((row) => {
@@ -166,9 +180,10 @@ function FertigationTracking({ data, selectedLocation }) {
         kKg: Number(row.kKg.toFixed(2)),
       }))
       .sort((a, b) => a.dayAfterPlanting - b.dayAfterPlanting);
-  }, [filteredRows]);
+  }, [filteredRows, serverView]);
 
   const fertilizerUsageData = useMemo(() => {
+    if (serverView?.usage) return serverView.usage;
     const safeSum = (key) =>
       filteredRows.reduce((sum, row) => {
         const value = typeof row[key] === "number" ? row[key] : 0;
@@ -197,7 +212,7 @@ function FertigationTracking({ data, selectedLocation }) {
         quantity: Number(safeSum("mn_mixture_kg").toFixed(2)),
       },
     ].filter((item) => item.quantity > 0);
-  }, [filteredRows]);
+  }, [filteredRows, serverView]);
 
   const cropStageRows = useMemo(() => {
     const splitRows =
@@ -211,6 +226,7 @@ function FertigationTracking({ data, selectedLocation }) {
   }, [data.cropStageSplit, selectedLocation]);
 
   const scheduleRows = useMemo(() => {
+    if (serverView?.scheduleRows) return serverView.scheduleRows;
     return [...filteredRows]
       .sort((a, b) => {
         const dayA = Number(a.day_after_planting || 0);
@@ -218,7 +234,7 @@ function FertigationTracking({ data, selectedLocation }) {
         return dayA - dayB;
       })
       .slice(0, 60);
-  }, [filteredRows]);
+  }, [filteredRows, serverView]);
 
   function showValue(value, unit = "kg") {
     if (typeof value === "number") {

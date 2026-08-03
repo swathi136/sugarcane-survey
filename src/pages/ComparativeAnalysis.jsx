@@ -48,6 +48,7 @@ import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
 import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
+import { loadComparativeAnalysisResults } from "../services/dashboardQueryService";
 import {
   PremiumBarDefs,
   PremiumBarShape,
@@ -106,6 +107,7 @@ function ComparativeAnalysis({ data, selectedLocation }) {
   const [selectedMetric, setSelectedMetric] = useState("plant_height_cm");
   const [selectedTreatment, setSelectedTreatment] = useState("All");
   const [activeTab, setActiveTab] = useState("overview");
+  const [serverAnalysis, setServerAnalysis] = useState(null);
 
   const metricOptions = [
     { label: "Plant Height", value: "plant_height_cm" },
@@ -140,7 +142,7 @@ function ComparativeAnalysis({ data, selectedLocation }) {
     return rows.filter((row) => row.location_id === selectedLocation);
   }, [data.fertigation, selectedLocation]);
 
-  const treatmentOptions = useMemo(() => {
+  const fallbackTreatmentOptions = useMemo(() => {
   const treatments = new Set();
 
   locationFilteredBiometric.forEach((row) => {
@@ -157,6 +159,13 @@ function ComparativeAnalysis({ data, selectedLocation }) {
 
   return ["All", ...Array.from(treatments).sort(naturalSort)];
 }, [locationFilteredBiometric, locationFilteredFertigation]);
+
+const treatmentOptions = useMemo(
+  () => serverAnalysis?.treatmentOptions
+    ? ["All", ...serverAnalysis.treatmentOptions]
+    : fallbackTreatmentOptions,
+  [serverAnalysis?.treatmentOptions, fallbackTreatmentOptions]
+);
 
 useEffect(() => {
   if (!treatmentOptions.includes(selectedTreatment)) {
@@ -176,13 +185,16 @@ const dayBaseFertigation = useMemo(() => {
   });
 }, [locationFilteredFertigation, selectedTreatment]);
 
-const biometricDayOptions = useMemo(() => {
+const fallbackBiometricDayOptions = useMemo(() => {
   return getUniqueSortedDays(dayBaseBiometric, "observation_day");
 }, [dayBaseBiometric]);
 
-const fertigationDayOptions = useMemo(() => {
+const fallbackFertigationDayOptions = useMemo(() => {
   return getUniqueSortedDays(dayBaseFertigation, "day_after_planting");
 }, [dayBaseFertigation]);
+
+const biometricDayOptions = serverAnalysis?.biometricDayOptions || fallbackBiometricDayOptions;
+const fertigationDayOptions = serverAnalysis?.fertigationDayOptions || fallbackFertigationDayOptions;
 
 const [bioStartIndex, setBioStartIndex] = useState(0);
 const [bioEndIndex, setBioEndIndex] = useState(0);
@@ -203,6 +215,27 @@ const bioDayMin = biometricDayOptions[bioStartIndex] ?? 0;
 const bioDayMax = biometricDayOptions[bioEndIndex] ?? 0;
 const fertDayMin = fertigationDayOptions[fertStartIndex] ?? 0;
 const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
+
+useEffect(() => {
+  let active = true;
+  loadComparativeAnalysisResults({
+    locationId: selectedLocation,
+    treatmentId: selectedTreatment,
+    bioDayMin: biometricDayOptions.length ? bioDayMin : null,
+    bioDayMax: biometricDayOptions.length ? bioDayMax : null,
+    fertDayMin: fertigationDayOptions.length ? fertDayMin : null,
+    fertDayMax: fertigationDayOptions.length ? fertDayMax : null,
+  })
+    .then((result) => {
+      if (active) setServerAnalysis(result);
+    })
+    .catch(() => {
+      if (active) setServerAnalysis(null);
+    });
+  return () => {
+    active = false;
+  };
+}, [selectedLocation, selectedTreatment, bioDayMin, bioDayMax, fertDayMin, fertDayMax, biometricDayOptions.length, fertigationDayOptions.length]);
 
   const biometric = useMemo(() => {
     return locationFilteredBiometric.filter((row) => {
@@ -244,7 +277,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
     fertigationDayOptions.length,
   ]);
 
-  const locationComparison = useMemo(() => {
+  const fallbackLocationComparison = useMemo(() => {
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -293,7 +326,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
     }));
   }, [biometric, data.locations]);
 
-  const treatmentComparison = useMemo(() => {
+  const fallbackTreatmentComparison = useMemo(() => {
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -372,7 +405,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       .sort((a, b) => b.performanceScore - a.performanceScore);
   }, [biometric, data.locations]);
 
-  const dayWiseBiometric = useMemo(() => {
+  const fallbackDayWiseBiometric = useMemo(() => {
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -413,7 +446,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       .sort((a, b) => a.day - b.day);
   }, [biometric]);
 
-  const dayWiseFertigation = useMemo(() => {
+  const fallbackDayWiseFertigation = useMemo(() => {
     const grouped = {};
 
     fertigation.forEach((row) => {
@@ -460,7 +493,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       .sort((a, b) => a.day - b.day);
   }, [fertigation]);
 
-  const nutrientVsGrowth = useMemo(() => {
+  const fallbackNutrientVsGrowth = useMemo(() => {
     const growthGrouped = {};
     const fertGrouped = {};
 
@@ -520,7 +553,24 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
       .slice(0, 15);
   }, [biometric, fertigation, data.locations]);
 
+  const locationComparison = serverAnalysis?.locationComparison || fallbackLocationComparison;
+  const treatmentComparison = serverAnalysis?.treatmentComparison || fallbackTreatmentComparison;
+  const dayWiseBiometric = serverAnalysis?.dayWiseBiometric || fallbackDayWiseBiometric;
+  const dayWiseFertigation = serverAnalysis?.dayWiseFertigation || fallbackDayWiseFertigation;
+  const nutrientVsGrowth = serverAnalysis?.nutrientVsGrowth || fallbackNutrientVsGrowth;
+
   const summary = useMemo(() => {
+    if (serverAnalysis?.summary) {
+      return {
+        bestLocation: serverAnalysis.summary.bestLocation || "-",
+        bestTreatment: serverAnalysis.summary.bestTreatment || "-",
+        latestDay: Number(serverAnalysis.summary.latestDay || 0),
+        totalNPK: Number(serverAnalysis.summary.totalNPK || 0),
+        treatmentCount: Number(serverAnalysis.summary.treatmentCount || 0),
+        biometricRecords: Number(serverAnalysis.summary.biometricRecords || 0),
+        fertigationRecords: Number(serverAnalysis.summary.fertigationRecords || 0),
+      };
+    }
     const bestLocation = [...locationComparison].sort(
       (a, b) => b.avgHeight - a.avgHeight
     )[0];
@@ -552,6 +602,7 @@ const fertDayMax = fertigationDayOptions[fertEndIndex] ?? 0;
     dayWiseFertigation,
     biometric,
     fertigation,
+    serverAnalysis,
   ]);
 
 function resetFilters() {

@@ -66,12 +66,21 @@ function CustomBarTooltip({ active, payload, label }) {
 }
 
 function Overview({ data, selectedLocation }) {
+  const serverResult = data.serverResultsByLocation?.[selectedLocation];
   const biometric = useMemo(() => {
     if (selectedLocation === "All") return data.biometric;
     return data.biometric.filter((row) => row.location_id === selectedLocation);
   }, [data.biometric, selectedLocation]);
 
   const kpis = useMemo(() => {
+    if (serverResult?.overview) return {
+      totalLocations: serverResult.overview.totalLocations,
+      totalPlots: serverResult.overview.totalPlots,
+      totalTreatments: serverResult.overview.totalTreatments,
+      avgHeight: serverResult.overview.avgPlantHeight,
+      latestDay: serverResult.overview.latestObservationDay,
+      openAlerts: serverResult.overview.openAlerts,
+    };
     const validHeightRows = biometric.filter(
       (row) => typeof row.plant_height_cm === "number"
     );
@@ -121,9 +130,15 @@ function Overview({ data, selectedLocation }) {
       latestDay,
       openAlerts: alerts.length,
     };
-  }, [biometric, data.locations, data.plots, selectedLocation]);
+  }, [biometric, data.locations, data.plots, selectedLocation, serverResult]);
 
   const locationHeightData = useMemo(() => {
+    if (data.serverResultsByLocation) {
+      return (data.locations || []).map((location) => ({
+        location: location.location_short_name || location.location_id,
+        avgPlantHeight: Number(data.serverResultsByLocation[location.location_id]?.overview?.avgPlantHeight || 0),
+      }));
+    }
     const grouped = {};
 
     data.biometric.forEach((row) => {
@@ -148,6 +163,12 @@ function Overview({ data, selectedLocation }) {
   }, [data.biometric, data.locations]);
 
   const growthTrendData = useMemo(() => {
+    if (serverResult?.biometricGrowth?.growthByDay) {
+      return serverResult.biometricGrowth.growthByDay.map((row) => ({
+        day: `${row.day} Day`,
+        avgPlantHeight: row.avgPlantHeight,
+      }));
+    }
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -169,9 +190,15 @@ function Overview({ data, selectedLocation }) {
         avgPlantHeight: Number((value.total / value.count).toFixed(1)),
       }))
       .sort((a, b) => parseInt(a.day) - parseInt(b.day));
-  }, [biometric]);
+  }, [biometric, serverResult]);
 
   const topTreatmentsData = useMemo(() => {
+    if (serverResult?.treatmentComparison?.ranking) {
+      return serverResult.treatmentComparison.ranking.slice(0, 5).map((row) => ({
+        treatment: row.treatment,
+        avgPlantHeight: Number(row.avgPlantHeight || 0),
+      }));
+    }
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -194,7 +221,7 @@ function Overview({ data, selectedLocation }) {
       }))
       .sort((a, b) => b.avgPlantHeight - a.avgPlantHeight)
       .slice(0, 5);
-  }, [biometric]);
+  }, [biometric, serverResult]);
 
   return (
     <>

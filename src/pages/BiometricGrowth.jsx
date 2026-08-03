@@ -1,6 +1,7 @@
 import EmptyState from "../components/EmptyState";
 import { getLocationName } from "../utils/formatters";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadBiometricGrowthResults } from "../services/dashboardQueryService";
 import {
   LineChart,
   Line,
@@ -82,6 +83,16 @@ const metricOptions = [
 function BiometricGrowth({ data, selectedLocation }) {
   const [metric, setMetric] = useState("plant_height_cm");
   const [selectedTreatment, setSelectedTreatment] = useState("All");
+  const [serverView, setServerView] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setServerView(null);
+    loadBiometricGrowthResults(selectedLocation, selectedTreatment, metric)
+      .then((result) => { if (active) setServerView(result); })
+      .catch((error) => { if (import.meta.env.DEV) console.error("Server biometric query failed", error); });
+    return () => { active = false; };
+  }, [selectedLocation, selectedTreatment, metric]);
 
   const selectedMetric = metricOptions.find((item) => item.key === metric);
 
@@ -94,6 +105,7 @@ function BiometricGrowth({ data, selectedLocation }) {
   }, [data.biometric, selectedLocation]);
 
   const treatmentOptions = useMemo(() => {
+    if (serverView?.treatments) return ["All", ...serverView.treatments];
     const treatments = new Set(
       locationFilteredData.map((row) => row.treatment_id).filter(Boolean)
     );
@@ -103,7 +115,7 @@ function BiometricGrowth({ data, selectedLocation }) {
       const numB = Number(String(b).replace("T", ""));
       return numA - numB;
     })];
-  }, [locationFilteredData]);
+  }, [locationFilteredData, serverView]);
 
   const filteredData = useMemo(() => {
     if (selectedTreatment === "All") return locationFilteredData;
@@ -118,6 +130,7 @@ function BiometricGrowth({ data, selectedLocation }) {
   }, [filteredData, metric]);
 
   const metricSummary = useMemo(() => {
+    if (serverView?.summary) return serverView.summary;
     if (validMetricRows.length === 0) {
       return {
         average: 0,
@@ -143,9 +156,10 @@ function BiometricGrowth({ data, selectedLocation }) {
       latestDay,
       totalRecords: validMetricRows.length,
     };
-  }, [validMetricRows, metric]);
+  }, [validMetricRows, metric, serverView]);
 
   const trendData = useMemo(() => {
+    if (serverView?.trend) return serverView.trend;
     const grouped = {};
 
     validMetricRows.forEach((row) => {
@@ -169,9 +183,10 @@ function BiometricGrowth({ data, selectedLocation }) {
         value: Number((value.total / value.count).toFixed(2)),
       }))
       .sort((a, b) => a.observationDay - b.observationDay);
-  }, [validMetricRows, metric]);
+  }, [validMetricRows, metric, serverView]);
 
   const treatmentComparisonData = useMemo(() => {
+    if (serverView?.treatmentComparison) return serverView.treatmentComparison;
     const grouped = {};
 
     locationFilteredData.forEach((row) => {
@@ -199,9 +214,10 @@ function BiometricGrowth({ data, selectedLocation }) {
         const numB = Number(String(b.treatment).replace("T", ""));
         return numA - numB;
       });
-  }, [locationFilteredData, metric]);
+  }, [locationFilteredData, metric, serverView]);
 
   const latestTableRows = useMemo(() => {
+    if (serverView?.latestRows) return serverView.latestRows;
     const latestDay = metricSummary.latestDay;
 
     return validMetricRows
@@ -212,9 +228,10 @@ function BiometricGrowth({ data, selectedLocation }) {
         return tA - tB;
       })
       .slice(0, 30);
-  }, [validMetricRows, metricSummary.latestDay]);
+  }, [validMetricRows, metricSummary.latestDay, serverView]);
 
   const bestTreatment = useMemo(() => {
+    if (serverView?.bestTreatment) return serverView.bestTreatment;
     if (treatmentComparisonData.length === 0) return "-";
 
     const best = [...treatmentComparisonData].sort(
@@ -222,7 +239,7 @@ function BiometricGrowth({ data, selectedLocation }) {
     )[0];
 
     return best?.treatment || "-";
-  }, [treatmentComparisonData]);
+  }, [treatmentComparisonData, serverView]);
 
   return (
     <>

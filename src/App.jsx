@@ -24,7 +24,8 @@ import { buildAnthiyurPlotLookup } from "./utils/anthiyur/buildAnthiyurPlotLooku
 import { normalizeApprovedAnthiyurRows } from "./utils/normalizers/normalizeApprovedAnthiyurRows";
 import { mergeAnthiyurDashboardData } from "./utils/mergeAnthiyurDashboardData";
 import { buildDashboardCalculationSnapshots } from "./utils/buildDashboardCalculationSnapshots";
-import { saveDashboardCalculationSnapshots } from "./services/dashboardSnapshotService";
+import { loadServerDashboardReferenceData, loadServerDashboardResults } from "./services/loadServerDashboardResults";
+import { compareDashboardCalculationParity } from "./utils/compareDashboardCalculationParity";
 
 import Overview from "./pages/Overview";
 import TreatmentMaster from "./pages/TreatmentMaster";
@@ -40,7 +41,7 @@ import LandingPage from "./components/LandingPage";
 import { sendRejectionNotification } from "./utils/emailService";
 import { fetchAllSubmissions, updateSubmissionStatus, updateSubmissionData } from "./services/fieldEntryService";
 
-async function loadDashboardDataWithApprovedEntries(authContext) {
+async function loadLegacyDashboardDataWithApprovedEntries(authContext) {
   const csvData = await loadDashboardData();
 
   if (!isSupabaseConfigured) return csvData;
@@ -158,7 +159,55 @@ async function loadDashboardDataWithApprovedEntries(authContext) {
     });
   }
 
-  return mergedData;
+  const serverResults = await loadServerDashboardResults();
+  const parity = serverResults.error
+    ? []
+    : compareDashboardCalculationParity(
+        buildDashboardCalculationSnapshots(mergedData),
+        serverResults.byLocation,
+      );
+
+  if (import.meta.env.DEV && (serverResults.error || parity.some((item) => !item.matches))) {
+    console.warn("Server dashboard calculation parity is not ready for cutover", {
+      error: serverResults.error,
+      parity,
+    });
+  }
+
+  return {
+    ...mergedData,
+    serverResultsByLocation: serverResults.byLocation,
+    serverCalculationParity: parity,
+  };
+}
+
+async function loadDashboardDataWithApprovedEntries(authContext) {
+  const [results, reference] = await Promise.all([
+    loadServerDashboardResults(),
+    loadServerDashboardReferenceData(),
+  ]);
+
+  if (!results.error && !reference.error && results.byLocation.All) {
+    return {
+      biometric: [],
+      fertigation: [],
+      locations: reference.data.locations || [],
+      plots: reference.data.plots || [],
+      treatments: reference.data.treatments || [],
+      cropStageSplit: reference.data.cropStageSplit || [],
+      fertilizerStock: reference.data.fertilizerStock || [],
+      fertigationSummary: reference.data.fertigationSummary || [],
+      serverResultsByLocation: results.byLocation,
+      serverCalculationParity: [],
+      dashboardDataSource: "supabase-prepared-results",
+    };
+  }
+
+  console.warn("Prepared Supabase dashboard data was unavailable; loading the legacy CSV fallback.", {
+    resultsError: results.error,
+    referenceError: reference.error,
+  });
+  return loadLegacyDashboardDataWithApprovedEntries(authContext);
 }
 
 function App() {
@@ -508,8 +557,6 @@ function App() {
       if (requestSequence === dashboardLoadSequence.current) {
         setData(result);
         hasDashboardData.current = true;
-        const snapshots = buildDashboardCalculationSnapshots(result);
-        void saveDashboardCalculationSnapshots(snapshots);
       }
     } catch (err) {
       if (requestSequence === dashboardLoadSequence.current) {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Database,
   CheckCircle2,
@@ -30,6 +30,7 @@ import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
 import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
+import { loadDataQualityResults } from "../services/dashboardQueryService";
 import {
   PremiumBarDefs,
   PremiumBarShape,
@@ -55,6 +56,16 @@ function CompletenessTooltip({ active, payload, label }) {
 }
 
 function DataQuality({ data, selectedLocation }) {
+  const [serverView, setServerView] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setServerView(null);
+    loadDataQualityResults(selectedLocation)
+      .then((result) => { if (active) setServerView(result); })
+      .catch((error) => { if (import.meta.env.DEV) console.error("Server data-quality query failed", error); });
+    return () => { active = false; };
+  }, [selectedLocation]);
   const biometric = useMemo(() => {
     if (selectedLocation === "All") return data.biometric || [];
 
@@ -116,12 +127,14 @@ function DataQuality({ data, selectedLocation }) {
   ];
 
   const biometricCompleteness = useMemo(() => {
+    if (serverView?.biometricColumns) return serverView.biometricColumns.map((row) => ({ ...row, label: formatColumnName(row.column), status: getStatus(row.completeness) }));
     return calculateCompleteness(biometric, biometricColumns);
-  }, [biometric]);
+  }, [biometric, serverView]);
 
   const fertigationCompleteness = useMemo(() => {
+    if (serverView?.fertigationColumns) return serverView.fertigationColumns.map((row) => ({ ...row, label: formatColumnName(row.column), status: getStatus(row.completeness) }));
     return calculateCompleteness(fertigation, fertigationColumns);
-  }, [fertigation]);
+  }, [fertigation, serverView]);
 
   const coreMetricSummary = useMemo(() => {
     const coreMetrics = [
@@ -158,6 +171,8 @@ function DataQuality({ data, selectedLocation }) {
     ];
 
     return coreMetrics.map((metric) => {
+      const serverMetric = serverView?.biometricColumns?.find((row) => row.column === metric.column);
+      if (serverMetric) return { ...metric, ...serverMetric, status: getStatus(serverMetric.completeness) };
       const result = calculateSingleColumnCompleteness(
         biometric,
         metric.column
@@ -169,7 +184,7 @@ function DataQuality({ data, selectedLocation }) {
         status: getStatus(result.completeness),
       };
     });
-  }, [biometric]);
+  }, [biometric, serverView]);
 
   const weakMetricSummary = useMemo(() => {
     const weakMetrics = [
@@ -201,6 +216,8 @@ function DataQuality({ data, selectedLocation }) {
     ];
 
     return weakMetrics.map((metric) => {
+      const serverMetric = serverView?.biometricColumns?.find((row) => row.column === metric.column);
+      if (serverMetric) return { ...metric, ...serverMetric, status: getStatus(serverMetric.completeness) };
       const result = calculateSingleColumnCompleteness(
         biometric,
         metric.column
@@ -212,9 +229,17 @@ function DataQuality({ data, selectedLocation }) {
         status: getStatus(result.completeness),
       };
     });
-  }, [biometric]);
+  }, [biometric, serverView]);
 
   const locationCoverage = useMemo(() => {
+    if (serverView?.locationCoverage) return serverView.locationCoverage.map((row) => ({
+      location: getLocationName(row.locationId, data.locations || []),
+      records: row.records,
+      heightCompleteness: row.heightCompleteness,
+      tillersCompleteness: row.tillersCompleteness,
+      leavesCompleteness: row.leavesCompleteness,
+      latestDay: row.latestDay,
+    }));
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -257,9 +282,10 @@ function DataQuality({ data, selectedLocation }) {
       leavesCompleteness: percentage(item.leavesAvailable, item.records),
       latestDay: item.latestDay,
     }));
-  }, [biometric, data.locations]);
+  }, [biometric, data.locations, serverView]);
 
   const summary = useMemo(() => {
+    if (serverView?.summary) return serverView.summary;
     const biometricAvg = average(
       biometricCompleteness.map((item) => item.completeness)
     );
@@ -284,7 +310,7 @@ function DataQuality({ data, selectedLocation }) {
       strongColumns,
       weakColumns,
     };
-  }, [biometric, fertigation, biometricCompleteness, fertigationCompleteness]);
+  }, [biometric, fertigation, biometricCompleteness, fertigationCompleteness, serverView]);
 
   return (
     <>

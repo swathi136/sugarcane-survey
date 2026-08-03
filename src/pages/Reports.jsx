@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FileText,
   MapPin,
@@ -23,8 +23,25 @@ import EmptyState from "../components/EmptyState";
 import MethodologyNote from "../components/MethodologyNote";
 import { getLocationName } from "../utils/formatters";
 import { toFiniteMetricOrNull } from "../utils/metrics/toFiniteMetricOrNull";
+import { loadDataQualityResults } from "../services/dashboardQueryService";
 
 function Reports({ data, selectedLocation }) {
+  const serverResult = data.serverResultsByLocation?.[selectedLocation];
+  const [serverQuality, setServerQuality] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    loadDataQualityResults(selectedLocation)
+      .then((result) => {
+        if (active) setServerQuality(result);
+      })
+      .catch(() => {
+        if (active) setServerQuality(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedLocation]);
   const biometric = useMemo(() => {
     const rows = data.biometric || [];
 
@@ -55,6 +72,19 @@ function Reports({ data, selectedLocation }) {
       : getLocationName(selectedLocation, data.locations || []);
 
   const summary = useMemo(() => {
+    if (serverResult) {
+      const overview = serverResult.overview || {};
+      return {
+        locations: Number(overview.totalLocations || 0),
+        plots: Number(overview.totalPlots || 0),
+        treatments: Number(overview.totalTreatments || 0),
+        biometricRecords: Number(overview.biometricRecords || 0),
+        fertigationRecords: Number(overview.fertigationRecords || 0),
+        avgHeight: Number(overview.avgPlantHeight || 0),
+        avgTillers: Number(overview.avgTillers || 0),
+        latestDay: Number(overview.latestObservationDay || 0),
+      };
+    }
     const locationSet = new Set(
       biometric.map((row) => row.location_id).filter(Boolean)
     );
@@ -101,9 +131,18 @@ function Reports({ data, selectedLocation }) {
       avgTillers: average(tillerValues),
       latestDay,
     };
-  }, [biometric, fertigation, plots, selectedLocation]);
+  }, [biometric, fertigation, plots, selectedLocation, serverResult]);
 
   const locationSummary = useMemo(() => {
+    if (serverResult?.reports?.locationSummary) {
+      return serverResult.reports.locationSummary.map((row) => ({
+        location: getLocationName(row.location_id, data.locations || []),
+        records: Number(row.records || 0),
+        avgHeight: Number(row.avg_height || 0),
+        avgTillers: Number(row.avg_tillers || 0),
+        latestDay: Number(row.latest_day || 0),
+      }));
+    }
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -144,9 +183,19 @@ function Reports({ data, selectedLocation }) {
       avgTillers: average(item.tillerValues),
       latestDay: item.latestDay,
     }));
-  }, [biometric, data.locations]);
+  }, [biometric, data.locations, serverResult]);
 
   const treatmentRanking = useMemo(() => {
+    if (serverResult?.reports?.treatmentRanking) {
+      return serverResult.reports.treatmentRanking.map((row) => ({
+        location: getLocationName(row.location_id, data.locations || []),
+        treatment: row.treatment,
+        records: Number(row.records || 0),
+        avgHeight: Number(row.avg_height || 0),
+        avgTillers: Number(row.avg_tillers || 0),
+        avgLeaves: Number(row.avg_leaves || 0),
+      }));
+    }
     const grouped = {};
 
     biometric.forEach((row) => {
@@ -187,9 +236,21 @@ function Reports({ data, selectedLocation }) {
       }))
       .sort((a, b) => b.avgHeight - a.avgHeight)
       .slice(0, 10);
-  }, [biometric, data.locations]);
+  }, [biometric, data.locations, serverResult]);
 
   const fertilizerTotals = useMemo(() => {
+    if (serverResult?.fertigationTracking?.totals) {
+      const totals = serverResult.fertigationTracking.totals;
+      return {
+        nitrogen: Number(totals.nKg || 0),
+        phosphorus: Number(totals.p2o5Kg || 0),
+        potassium: Number(totals.k2oKg || 0),
+        urea: Number(totals.ureaKg || 0),
+        dap: Number(totals.dapKg || 0),
+        map: Number(totals.mapKg || 0),
+        potash: Number(totals.whitePotashKg || 0),
+      };
+    }
     return {
       nitrogen: sumColumn(fertigation, "n_kg"),
       phosphorus: sumColumn(fertigation, "p2o5_kg"),
@@ -199,9 +260,16 @@ function Reports({ data, selectedLocation }) {
       map: sumColumn(fertigation, "map_kg"),
       potash: sumColumn(fertigation, "white_potash_kg"),
     };
-  }, [fertigation]);
+  }, [fertigation, serverResult]);
 
   const alertSummary = useMemo(() => {
+    if (serverResult?.smartAlerts) {
+      return {
+        lowGrowthCount: Number(serverResult.smartAlerts.lowGrowth || 0),
+        weakTilleringCount: Number(serverResult.smartAlerts.weakTillering || 0),
+        totalAlerts: Number(serverResult.smartAlerts.total || 0),
+      };
+    }
     const heightValues = biometric
       .map((row) => toFiniteMetricOrNull(row.plant_height_cm))
       .filter((value) => value !== null);
@@ -230,7 +298,7 @@ function Reports({ data, selectedLocation }) {
       weakTilleringCount,
       totalAlerts: lowGrowthCount + weakTilleringCount,
     };
-  }, [biometric]);
+  }, [biometric, serverResult]);
 
   const comparativeSummary = useMemo(() => {
     const bestLocation = [...locationSummary].sort(
@@ -244,11 +312,13 @@ function Reports({ data, selectedLocation }) {
       fertilizerTotals.phosphorus +
       fertilizerTotals.potassium;
 
-    const uniqueTreatmentCount = new Set(
+    const uniqueTreatmentCount = serverResult
+      ? Number(serverResult.overview?.totalTreatments || 0)
+      : new Set(
       biometric
         .map((row) => `${row.location_id}-${row.treatment_id}`)
         .filter(Boolean)
-    ).size;
+      ).size;
 
     return {
       bestLocation: bestLocation?.location || "-",
@@ -265,6 +335,7 @@ function Reports({ data, selectedLocation }) {
     fertilizerTotals,
     biometric,
     summary.latestDay,
+    serverResult,
   ]);
 
   const dataQualitySummary = useMemo(() => {
@@ -324,14 +395,17 @@ function Reports({ data, selectedLocation }) {
       },
     ];
 
+    const serverColumns = new Map(
+      (serverQuality?.biometricColumns || []).map((row) => [row.column, row])
+    );
     const coreRows = coreColumns.map((item) => ({
       ...item,
-      ...getColumnCompleteness(biometric, item.column),
+      ...(serverColumns.get(item.column) || getColumnCompleteness(biometric, item.column)),
     }));
 
     const weakRows = weakColumns.map((item) => ({
       ...item,
-      ...getColumnCompleteness(biometric, item.column),
+      ...(serverColumns.get(item.column) || getColumnCompleteness(biometric, item.column)),
     }));
 
     const avgCoreCompleteness = average(
@@ -353,7 +427,7 @@ function Reports({ data, selectedLocation }) {
       coreRows,
       weakRows,
     };
-  }, [biometric]);
+  }, [biometric, serverQuality]);
 
   function downloadSummaryCSV() {
     const rows = [];

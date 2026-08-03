@@ -69,6 +69,7 @@ function TillersBarTooltip({ active, payload, label }) {
 }
 
 function TreatmentComparison({ data, selectedLocation }) {
+  const serverTreatmentData = data?.serverResultsByLocation?.[selectedLocation]?.treatmentComparison?.ranking;
   const biometric = useMemo(() => {
     if (!data || !Array.isArray(data.biometric)) return [];
     if (!selectedLocation || selectedLocation === "All" || selectedLocation === "all") return data.biometric;
@@ -79,6 +80,7 @@ function TreatmentComparison({ data, selectedLocation }) {
   }, [data, selectedLocation]);
 
   const treatmentData = useMemo(() => {
+    if (serverTreatmentData) return serverTreatmentData;
     if (!biometric || biometric.length === 0) return [];
 
     const grouped = {};
@@ -159,7 +161,7 @@ function TreatmentComparison({ data, selectedLocation }) {
         ),
       }))
       .sort((a, b) => b.performanceScore - a.performanceScore);
-  }, [biometric]);
+  }, [biometric, serverTreatmentData]);
 
   const kpis = useMemo(() => {
     if (treatmentData.length === 0) {
