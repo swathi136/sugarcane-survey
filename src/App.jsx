@@ -15,6 +15,16 @@ import { loadApprovedCollegeData } from "./services/loadApprovedCollegeData";
 import { normalizeApprovedCollegeRows } from "./utils/normalizers/normalizeApprovedCollegeRows";
 import { mergeCollegeDashboardData } from "./utils/mergeCollegeDashboardData";
 import { buildCollegePlotLookup } from "./utils/college/buildCollegePlotLookup";
+import { loadApprovedAthaniData } from "./services/loadApprovedAthaniData";
+import { buildAthaniPlotLookup } from "./utils/athani/buildAthaniPlotLookup";
+import { normalizeApprovedAthaniRows } from "./utils/normalizers/normalizeApprovedAthaniRows";
+import { mergeAthaniDashboardData } from "./utils/mergeAthaniDashboardData";
+import { loadApprovedAnthiyurData } from "./services/loadApprovedAnthiyurData";
+import { buildAnthiyurPlotLookup } from "./utils/anthiyur/buildAnthiyurPlotLookup";
+import { normalizeApprovedAnthiyurRows } from "./utils/normalizers/normalizeApprovedAnthiyurRows";
+import { mergeAnthiyurDashboardData } from "./utils/mergeAnthiyurDashboardData";
+import { buildDashboardCalculationSnapshots } from "./utils/buildDashboardCalculationSnapshots";
+import { saveDashboardCalculationSnapshots } from "./services/dashboardSnapshotService";
 
 import Overview from "./pages/Overview";
 import TreatmentMaster from "./pages/TreatmentMaster";
@@ -30,27 +40,72 @@ import LandingPage from "./components/LandingPage";
 import { sendRejectionNotification } from "./utils/emailService";
 import { fetchAllSubmissions, updateSubmissionStatus, updateSubmissionData } from "./services/fieldEntryService";
 
-async function loadDashboardDataWithApprovedCollege(authContext) {
+async function loadDashboardDataWithApprovedEntries(authContext) {
   const csvData = await loadDashboardData();
 
   if (!isSupabaseConfigured) return csvData;
 
-  const approvedResult = await loadApprovedCollegeData();
-  if (approvedResult.error) {
+  const [collegeSettled, athaniSettled, anthiyurSettled] = await Promise.allSettled([
+    loadApprovedCollegeData(),
+    loadApprovedAthaniData(),
+    loadApprovedAnthiyurData(),
+  ]);
+
+  let mergedData = csvData;
+  let collegeDiagnostics = null;
+  let athaniDiagnostics = null;
+  let anthiyurDiagnostics = null;
+
+  const approvedResult = collegeSettled.status === "fulfilled" ? collegeSettled.value : null;
+  if (!approvedResult || approvedResult.error) {
     if (import.meta.env.DEV) {
       console.error(
         "Approved College dashboard data could not be loaded; using the CSV baseline.",
-        approvedResult.error,
+        approvedResult?.error || collegeSettled.reason,
       );
     }
-    return csvData;
+  } else {
+    const collegePlotLookup = buildCollegePlotLookup(csvData.plots || []);
+    const normalized = normalizeApprovedCollegeRows(approvedResult.rows, collegePlotLookup);
+    const merged = mergeCollegeDashboardData(mergedData, normalized);
+    mergedData = merged.data;
+    collegeDiagnostics = { normalized, merged };
   }
 
-  const collegePlotLookup = buildCollegePlotLookup(csvData.plots || []);
-  const normalized = normalizeApprovedCollegeRows(approvedResult.rows, collegePlotLookup);
-  const merged = mergeCollegeDashboardData(csvData, normalized);
+  const athaniResult = athaniSettled.status === "fulfilled" ? athaniSettled.value : null;
+  if (!athaniResult || athaniResult.error) {
+    if (import.meta.env.DEV) {
+      console.error(
+        "Approved Athani dashboard data could not be loaded; preserving available dashboard data.",
+        athaniResult?.error || athaniSettled.reason,
+      );
+    }
+  } else {
+    const athaniPlotLookup = buildAthaniPlotLookup(csvData.plots || []);
+    const normalized = normalizeApprovedAthaniRows(athaniResult.rows, athaniPlotLookup);
+    const merged = mergeAthaniDashboardData(mergedData, normalized);
+    mergedData = merged.data;
+    athaniDiagnostics = { normalized, merged, fetchCount: athaniResult.rows.length };
+  }
 
-  if (import.meta.env.DEV) {
+  const anthiyurResult = anthiyurSettled.status === "fulfilled" ? anthiyurSettled.value : null;
+  if (!anthiyurResult || anthiyurResult.error) {
+    if (import.meta.env.DEV) {
+      console.error(
+        "Approved Anthiyur dashboard data could not be loaded; preserving available dashboard data.",
+        anthiyurResult?.error || anthiyurSettled.reason,
+      );
+    }
+  } else {
+    const anthiyurPlotLookup = buildAnthiyurPlotLookup(csvData.plots || []);
+    const normalized = normalizeApprovedAnthiyurRows(anthiyurResult.rows, anthiyurPlotLookup);
+    const merged = mergeAnthiyurDashboardData(mergedData, normalized);
+    mergedData = merged.data;
+    anthiyurDiagnostics = { normalized, merged, fetchCount: anthiyurResult.rows.length };
+  }
+
+  if (import.meta.env.DEV && collegeDiagnostics) {
+    const { normalized, merged } = collegeDiagnostics;
     console.info("Approved College dashboard merge", {
       authInitialized: authContext.initialized,
       authenticatedUserId: authContext.userId || null,
@@ -67,7 +122,43 @@ async function loadDashboardDataWithApprovedCollege(authContext) {
     });
   }
 
-  return merged.data;
+  if (import.meta.env.DEV && athaniDiagnostics) {
+    const { normalized, merged, fetchCount } = athaniDiagnostics;
+    console.info("Approved Athani dashboard merge", {
+      approvedFetchCount: fetchCount,
+      normalizedBiometricCount: normalized.biometric.length,
+      normalizedFertigationCount: normalized.fertigation.length,
+      diagnosticsCount: normalized.diagnostics.length,
+      unmappedPlotCount: normalized.diagnostics.filter((item) => item.field === "plot").length,
+      biometricDuplicateCount: merged.diagnostics.biometric.duplicateCount,
+      fertigationDuplicateCount: merged.diagnostics.fertigation.duplicateCount,
+      ambiguousFertigationCount: merged.diagnostics.fertigation.ambiguousKeys.length,
+      approvedBiometricIdsSurviving: merged.diagnostics.biometric.approvedIdsSurviving,
+      approvedFertigationIdsSurviving: merged.diagnostics.fertigation.approvedIdsSurviving,
+      finalBiometricCount: merged.data.biometric.length,
+      finalFertigationCount: merged.data.fertigation.length,
+    });
+  }
+
+  if (import.meta.env.DEV && anthiyurDiagnostics) {
+    const { normalized, merged, fetchCount } = anthiyurDiagnostics;
+    console.info("Approved Anthiyur dashboard merge", {
+      approvedFetchCount: fetchCount,
+      normalizedBiometricCount: normalized.biometric.length,
+      normalizedFertigationCount: normalized.fertigation.length,
+      diagnosticsCount: normalized.diagnostics.length,
+      unknownPlotCount: normalized.diagnostics.filter((item) => item.field === "plot").length,
+      biometricAddedCount: merged.diagnostics.biometricAdded,
+      biometricDuplicateIdCount: merged.diagnostics.biometricDuplicateIds,
+      fertigationAddedCount: merged.diagnostics.fertigationAdded,
+      fertigationReplacedCount: merged.diagnostics.fertigationReplaced,
+      fertigationAmbiguousCount: merged.diagnostics.fertigationAmbiguous.length,
+      finalBiometricCount: merged.diagnostics.finalBiometricCount,
+      finalFertigationCount: merged.diagnostics.finalFertigationCount,
+    });
+  }
+
+  return mergedData;
 }
 
 function App() {
@@ -299,15 +390,11 @@ function App() {
           role: isAdmin ? "admin" : "student",
         };
         setAuthSession(demoUser);
-        setAuthSuccess(`Logged in successfully as ${isAdmin ? "Admin" : "Student"}! Redirecting...`);
-        setTimeout(() => {
-          setShowLogin(false);
-          setAuthSuccess("");
-          setEmail("");
-          setPassword("");
-
-          setView(isAdmin ? "admin-approval" : "data-entry");
-        }, 1000);
+        setShowLogin(false);
+        setAuthSuccess("");
+        setEmail("");
+        setPassword("");
+        setView(isAdmin ? "admin-approval" : "data-entry");
         return;
       }
 
@@ -335,15 +422,11 @@ function App() {
 
       const isAdmin = loginRole === "admin" || email.toLowerCase().includes("admin");
       setAuthSession({ ...data.session, role: isAdmin ? "admin" : "student", user: data.user || data.session?.user });
-      setAuthSuccess(`Login successful! Redirecting...`);
-      setTimeout(() => {
-        setShowLogin(false);
-        setAuthSuccess("");
-        setEmail("");
-        setPassword("");
-
-        setView(isAdmin ? "admin-approval" : "data-entry");
-      }, 1000);
+      setShowLogin(false);
+      setAuthSuccess("");
+      setEmail("");
+      setPassword("");
+      setView(isAdmin ? "admin-approval" : "data-entry");
     } catch (err) {
       setAuthError(err?.message || "Failed to log in via Supabase.");
     } finally {
@@ -405,22 +488,28 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const dashboardLoadSequence = useRef(0);
+  const hasDashboardData = useRef(false);
 
   const reloadDashboardData = useCallback(async () => {
     const requestSequence = dashboardLoadSequence.current + 1;
     dashboardLoadSequence.current = requestSequence;
 
     try {
-      setLoading(true);
+      if (!hasDashboardData.current) {
+        setLoading(true);
+      }
       setError(null);
 
-      const result = await loadDashboardDataWithApprovedCollege({
+      const result = await loadDashboardDataWithApprovedEntries({
         initialized: authInitialized,
         userId: authSession?.user?.id || null,
       });
 
       if (requestSequence === dashboardLoadSequence.current) {
         setData(result);
+        hasDashboardData.current = true;
+        const snapshots = buildDashboardCalculationSnapshots(result);
+        void saveDashboardCalculationSnapshots(snapshots);
       }
     } catch (err) {
       if (requestSequence === dashboardLoadSequence.current) {
@@ -440,7 +529,14 @@ function App() {
   useEffect(() => {
     if (!authInitialized) return;
     reloadDashboardData();
-  }, [authInitialized, authSession?.user?.id, view, reloadDashboardData]);
+  }, [authInitialized, authSession?.user?.id, reloadDashboardData]);
+
+  const openDashboard = useCallback(() => {
+    setView("dashboard");
+    if (hasDashboardData.current) {
+      reloadDashboardData();
+    }
+  }, [reloadDashboardData]);
 
   const pageInfo = useMemo(() => {
     const info = {
@@ -548,7 +644,7 @@ function App() {
   }
 
   if (view === "landing") {
-    return <LandingPage onViewDashboard={() => setView("dashboard")} />;
+    return <LandingPage onViewDashboard={openDashboard} />;
   }
 
   if (view === "data-entry") {
@@ -556,7 +652,7 @@ function App() {
       <StudentDataEntry
         authSession={authSession}
         submissions={submissionsList}
-        onBackToDashboard={() => setView("dashboard")}
+        onBackToDashboard={openDashboard}
         onBackToLanding={() => setView("landing")}
         onSignOut={handleSignOut}
         onSubmitNewEntry={handleSubmitNewEntry}
@@ -572,7 +668,7 @@ function App() {
         onApproveSubmission={handleApproveSubmission}
         onRejectSubmission={handleRejectSubmission}
         onUpdateSubmission={handleUpdateSubmission}
-        onBackToDashboard={() => setView("dashboard")}
+        onBackToDashboard={openDashboard}
         onSignOut={handleSignOut}
       />
     );

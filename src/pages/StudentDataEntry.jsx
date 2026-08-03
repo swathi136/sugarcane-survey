@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   MapPin,
   Grid,
@@ -111,6 +111,59 @@ const TREATMENT_DESCRIPTIONS = {
   },
 };
 
+const formatCustomFields = (fields) =>
+  Array.isArray(fields)
+    ? fields
+        .filter((field) => field?.name)
+        .map((field) => `${field.name}: ${field.value ?? "-"}`)
+        .join(", ")
+    : "";
+
+const normalizeStudentEntry = (row, locationName, tableName) => {
+  const isCollegeEntry = tableName === "field_entries";
+
+  return {
+    id: row.id,
+    tableName,
+    createdAt: row.created_at,
+    timestamp: new Date(row.created_at).toLocaleString(),
+    locationName,
+    locationId: row.location_code,
+    plotName: row.plot,
+    obsDay: `DAY ${row.observation_day}`,
+    treatment: row.treatment,
+    obsDate: isCollegeEntry ? row.observation_date : row.date_of_obs,
+    fertDate: row.fertigation_date,
+    plantNum: (isCollegeEntry ? row.plant_number : row.plant_num) ?? "-",
+    plantHeight: row.plant_height ?? "-",
+    numTillers: row.tiller_count ?? "-",
+    numLeaves: row.leaf_count ?? "-",
+    leafLength: (isCollegeEntry ? row.leaf_length : row.leaf_height) ?? "-",
+    leafBreadth: (isCollegeEntry ? row.leaf_width : row.leaf_breath) ?? "-",
+    numNodes: row.number_of_nodes ?? "-",
+    nodeLength: row.node_length ?? "-",
+    millableCaneCount: row.millable_cane_count_1m ?? "-",
+    plantCount1m: row.plant_count_1m ?? "-",
+    plantCount5m: row.plant_count_5m ?? "-",
+    plantCount15m: row.plant_count_15m ?? "-",
+    germinationPct: row.germination_pct ?? "-",
+    whitePotashKg: row.white_potash_kg ?? "-",
+    nKg: row.n_kg ?? "-",
+    p2o5Kg: row.p2o5_kg ?? "-",
+    k2oKg: row.k2o_kg ?? "-",
+    mnMixture: row.mn_mixture ?? "-",
+    mapKg: (isCollegeEntry ? row.map : row.map_kg) ?? "-",
+    dapKg: (isCollegeEntry ? row.dap : row.dap_kg) ?? "-",
+    sspKg: row.ssp ?? "-",
+    ureaKg: (isCollegeEntry ? row.urea : row.urea_kg) ?? "-",
+    mopKg: row.mop ?? "-",
+    customBiometrics: formatCustomFields(row.custom_biometric),
+    customFertigation: formatCustomFields(row.custom_fertigation),
+    status: String(row.status || "Pending").toUpperCase(),
+    rejectionFeedback: row.rejection_feedback || "",
+  };
+};
+
 function StudentDataEntry({
   authSession,
   submissions = [],
@@ -169,6 +222,95 @@ function StudentDataEntry({
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submittedEntries, setSubmittedEntries] = useState([]);
+  const [databaseSubmissions, setDatabaseSubmissions] = useState([]);
+  const [studentRecordsLoaded, setStudentRecordsLoaded] = useState(false);
+
+  const loadStudentSubmissions = useCallback(async () => {
+    const userId = authSession?.user?.id;
+    if (!userId) {
+      setDatabaseSubmissions([]);
+      setStudentRecordsLoaded(false);
+      return;
+    }
+
+    const sources = [
+      ["field_entries", "College"],
+      ["athani_field_entries", "Athani"],
+      ["anthiyur_field_entries", "Anthiyur"],
+    ];
+
+    const results = await Promise.all(
+      sources.map(async ([tableName, locationName]) => {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select("*")
+          .eq("created_by", userId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error(`Unable to load student records from ${tableName}:`, error);
+          return [];
+        }
+
+        return (data || []).map((row) => normalizeStudentEntry(row, locationName, tableName));
+      }),
+    );
+
+    setDatabaseSubmissions(
+      results.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    );
+    setStudentRecordsLoaded(true);
+  }, [authSession?.user?.id]);
+
+  useEffect(() => {
+    if (!authSession?.user?.id) return undefined;
+
+    let active = true;
+    const refresh = async () => {
+      if (active) await loadStudentSubmissions();
+    };
+
+    refresh();
+    window.addEventListener("focus", refresh);
+
+    const channel = supabase
+      .channel(`student-records-${authSession.user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "field_entries", filter: `created_by=eq.${authSession.user.id}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "athani_field_entries", filter: `created_by=eq.${authSession.user.id}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "anthiyur_field_entries", filter: `created_by=eq.${authSession.user.id}` },
+        refresh,
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+      supabase.removeChannel(channel);
+    };
+  }, [authSession?.user?.id, loadStudentSubmissions]);
+
+  const displayEntries = useMemo(() => {
+    if (!studentRecordsLoaded) {
+      return submissions.length > 0 ? submissions : submittedEntries;
+    }
+
+    const entriesById = new Map();
+    submittedEntries.forEach((entry) => entriesById.set(entry.id, entry));
+    databaseSubmissions.forEach((entry) => entriesById.set(entry.id, entry));
+    return Array.from(entriesById.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    );
+  }, [databaseSubmissions, studentRecordsLoaded, submissions, submittedEntries]);
 
   // Location Identifiers
   const isCollege = selectedLocation === "L001";
@@ -511,6 +653,7 @@ function StudentDataEntry({
         if (onSubmitNewEntry) {
           onSubmitNewEntry(newEntry);
         }
+        await loadStudentSubmissions();
         setSubmitSuccess("College Field Data Record saved successfully to Supabase.");
 
         // Clear numerical inputs
@@ -628,6 +771,7 @@ function StudentDataEntry({
         if (onSubmitNewEntry) {
           onSubmitNewEntry(newEntry);
         }
+        await loadStudentSubmissions();
         setSubmitSuccess("Athani Field Data Record saved successfully to Supabase.");
         clearFormInputs();
       } catch (error) {
@@ -750,6 +894,7 @@ function StudentDataEntry({
         if (onSubmitNewEntry) {
           onSubmitNewEntry(newEntry);
         }
+        await loadStudentSubmissions();
         setSubmitSuccess(`${locationObj?.shortName} Field Data Record saved successfully.`);
         clearFormInputs();
       } catch (error) {
@@ -2015,8 +2160,7 @@ function StudentDataEntry({
         </form>
 
         {/* SUBMITTED RECORDS TABLE LOG */}
-        {(submissions.length > 0 || submittedEntries.length > 0) && (() => {
-          const displayEntries = submissions.length > 0 ? submissions : submittedEntries;
+        {displayEntries.length > 0 && (() => {
           return (
             <div
               style={{
