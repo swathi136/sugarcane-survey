@@ -231,6 +231,7 @@ function App() {
   const [authSuccess, setAuthSuccess] = useState("");
 
   const [submissionsList, setSubmissionsList] = useState([]);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -672,7 +673,7 @@ function App() {
     }
     if (activePage === "comparative-analysis") {
       return (
-        <ComparativeAnalysis data={data} selectedLocation={selectedLocation} />
+        <ComparativeAnalysis data={data} selectedLocation={selectedLocation} searchTerm={searchTerm} />
       );
     }
 
@@ -741,6 +742,10 @@ function App() {
         activePage={activePage}
         setActivePage={setActivePage}
         onBackToLanding={() => setView("landing")}
+        onBackToPortal={authSession ? () => setView(authSession.role === "admin" ? "admin-approval" : "data-entry") : null}
+        portalName={authSession?.role === "admin" ? "Admin Page" : "Student Page"}
+        isExpanded={isSidebarExpanded}
+        setIsExpanded={setIsSidebarExpanded}
       />
 
       <main className="main-content">

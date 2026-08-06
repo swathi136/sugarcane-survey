@@ -103,7 +103,7 @@ const PremiumBar4 = makePremiumBarShape(4);
 const PremiumBar5 = makePremiumBarShape(5);
 const PremiumBar6 = makePremiumBarShape(6);
 
-function ComparativeAnalysis({ data, selectedLocation }) {
+function ComparativeAnalysis({ data, selectedLocation, searchTerm = "" }) {
   const [selectedMetric, setSelectedMetric] = useState("plant_height_cm");
   const [selectedTreatment, setSelectedTreatment] = useState("All");
   const [activeTab, setActiveTab] = useState("overview");
@@ -127,20 +127,44 @@ function ComparativeAnalysis({ data, selectedLocation }) {
       : getLocationName(selectedLocation, data.locations || []);
 
   const locationFilteredBiometric = useMemo(() => {
-    const rows = data.biometric || [];
+    let rows = data.biometric || [];
 
-    if (selectedLocation === "All") return rows;
+    if (selectedLocation !== "All") {
+      rows = rows.filter((row) => row.location_id === selectedLocation);
+    }
 
-    return rows.filter((row) => row.location_id === selectedLocation);
-  }, [data.biometric, selectedLocation]);
+    if (searchTerm && searchTerm.trim() !== "") {
+      const q = searchTerm.toLowerCase();
+      rows = rows.filter(
+        (row) =>
+          String(row.plot_label || "").toLowerCase().includes(q) ||
+          String(row.treatment_id || "").toLowerCase().includes(q) ||
+          String(row.location_id || "").toLowerCase().includes(q)
+      );
+    }
+
+    return rows;
+  }, [data.biometric, selectedLocation, searchTerm]);
 
   const locationFilteredFertigation = useMemo(() => {
-    const rows = data.fertigation || [];
+    let rows = data.fertigation || [];
 
-    if (selectedLocation === "All") return rows;
+    if (selectedLocation !== "All") {
+      rows = rows.filter((row) => row.location_id === selectedLocation);
+    }
 
-    return rows.filter((row) => row.location_id === selectedLocation);
-  }, [data.fertigation, selectedLocation]);
+    if (searchTerm && searchTerm.trim() !== "") {
+      const q = searchTerm.toLowerCase();
+      rows = rows.filter(
+        (row) =>
+          String(row.plot_label || "").toLowerCase().includes(q) ||
+          String(row.treatment_id || "").toLowerCase().includes(q) ||
+          String(row.location_id || "").toLowerCase().includes(q)
+      );
+    }
+
+    return rows;
+  }, [data.fertigation, selectedLocation, searchTerm]);
 
   const fallbackTreatmentOptions = useMemo(() => {
   const treatments = new Set();
@@ -567,8 +591,8 @@ useEffect(() => {
         latestDay: Number(serverAnalysis.summary.latestDay || 0),
         totalNPK: Number(serverAnalysis.summary.totalNPK || 0),
         treatmentCount: Number(serverAnalysis.summary.treatmentCount || 0),
-        biometricRecords: Number(serverAnalysis.summary.biometricRecords || 0),
-        fertigationRecords: Number(serverAnalysis.summary.fertigationRecords || 0),
+        biometricRecords: biometric.length,
+        fertigationRecords: fertigation.length,
       };
     }
     const bestLocation = [...locationComparison].sort(

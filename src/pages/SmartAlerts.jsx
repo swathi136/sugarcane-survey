@@ -214,7 +214,6 @@ function SmartAlerts({ data, selectedLocation }) {
           value={alertSummary.total}
           note="Generated from rules"
           danger={alertSummary.total > 0}
-          imageSrc={kpiSaTotalImg}
         />
 
         <KpiCard
@@ -223,7 +222,6 @@ function SmartAlerts({ data, selectedLocation }) {
           value={alertSummary.high}
           note="Immediate attention"
           danger={alertSummary.high > 0}
-          imageSrc={kpiSaHighImg}
         />
 
         <KpiCard
@@ -232,7 +230,6 @@ function SmartAlerts({ data, selectedLocation }) {
           value={alertSummary.medium}
           note="Needs monitoring"
           variant="orange"
-          imageSrc={kpiSaMediumImg}
         />
 
         <KpiCard
@@ -241,7 +238,6 @@ function SmartAlerts({ data, selectedLocation }) {
           value={alertSummary.low}
           note="Data verification"
           variant="blue"
-          imageSrc={kpiSaLowImg}
         />
 
         <KpiCard
@@ -250,7 +246,6 @@ function SmartAlerts({ data, selectedLocation }) {
           value={alertSummary.types}
           note="Rule categories"
           variant="emerald"
-          imageSrc={kpiSaTypesImg}
         />
       </section>
 

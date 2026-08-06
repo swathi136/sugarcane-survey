@@ -9,7 +9,9 @@ import {
   TrendingUp,
   DatabaseZap,
   GitCompare,
+  Menu,
 } from "lucide-react";
+import { useState } from "react";
 
 const menuItems = [
   {
@@ -59,21 +61,76 @@ const menuItems = [
   },
 ];
 
-function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry }) {
+function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, onBackToPortal, portalName, isExpanded, setIsExpanded }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const showExpanded = isExpanded || isHovered;
+
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-icon">
-          <Sprout size={22} />
+    <aside 
+      className={`sidebar ${showExpanded ? 'expanded' : 'collapsed'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: showExpanded ? '14px 12px' : '14px 0', transition: 'padding 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: showExpanded ? '160px' : '0px', opacity: showExpanded ? 1 : 0, transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)', whiteSpace: 'nowrap' }}>
+          <div className="brand-icon">
+            <Sprout size={22} />
+          </div>
+          <div>
+            <h2>Sugarcane</h2>
+            <p>Research Analytics</p>
+          </div>
         </div>
-        <div>
-          <h2>Sugarcane</h2>
-          <p>Research Analytics</p>
-        </div>
+        <button 
+          className="menu-btn" 
+          onClick={() => setIsExpanded(!isExpanded)} 
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px' }}
+          title="Toggle Sidebar"
+        >
+          <Menu size={24} />
+        </button>
       </div>
 
+      {onBackToPortal && (
+        <div style={{ 
+          padding: showExpanded ? '0 12px 12px 12px' : '0 12px 0 12px', 
+          maxHeight: showExpanded ? '60px' : '0px', 
+          opacity: showExpanded ? 1 : 0, 
+          overflow: 'hidden', 
+          transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' 
+        }}>
+          <button
+            className="nav-item"
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              color: '#0284c7',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justify: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+            onClick={onBackToPortal}
+          >
+            ← Back to {portalName}
+          </button>
+        </div>
+      )}
+
       {onBackToLanding && (
-        <div style={{ padding: '0 12px 12px 12px' }}>
+        <div style={{ 
+          padding: showExpanded ? '0 12px 12px 12px' : '0 12px 0 12px', 
+          maxHeight: showExpanded ? '60px' : '0px', 
+          opacity: showExpanded ? 1 : 0, 
+          overflow: 'hidden', 
+          transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' 
+        }}>
           <button
             className="nav-item"
             style={{
@@ -88,7 +145,8 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry }
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '8px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
             }}
             onClick={onBackToLanding}
           >
@@ -113,14 +171,31 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry }
                 }
               }}
             >
-              <Icon size={18} />
-              {item.label}
+              <Icon size={18} style={{ minWidth: '18px' }} />
+              <span style={{
+                overflow: 'hidden',
+                opacity: showExpanded ? 1 : 0,
+                maxWidth: showExpanded ? '200px' : '0px',
+                transform: showExpanded ? 'translateX(0)' : 'translateX(-10px)',
+                transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                whiteSpace: 'nowrap'
+              }}>
+                {item.label}
+              </span>
             </button>
           );
         })}
       </nav>
 
-      <div className="sidebar-footer">
+      <div className="sidebar-footer" style={{
+        opacity: showExpanded ? 1 : 0,
+        maxHeight: showExpanded ? '50px' : '0px',
+        overflow: 'hidden',
+        transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        paddingTop: showExpanded ? '16px' : '0px',
+        borderTop: showExpanded ? '1px solid var(--border)' : 'none',
+        whiteSpace: 'nowrap'
+      }}>
         <p>Dynamic monthly official data monitoring</p>
       </div>
     </aside>

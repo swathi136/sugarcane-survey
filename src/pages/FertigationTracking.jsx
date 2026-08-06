@@ -421,8 +421,8 @@ function FertigationTracking({ data, selectedLocation }) {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="table-custom">
+          <div className="table-wrapper">
+            <table>
               <thead>
                 <tr>
                   <th>Location</th>
@@ -468,8 +468,8 @@ function FertigationTracking({ data, selectedLocation }) {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="table-custom">
+          <div className="table-wrapper">
+            <table>
               <thead>
                 <tr>
                   <th>Location</th>
@@ -520,8 +520,8 @@ function FertigationTracking({ data, selectedLocation }) {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="table-custom">
+          <div className="table-wrapper">
+            <table>
               <thead>
                 <tr>
                   <th>Location</th>

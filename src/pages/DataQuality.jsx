@@ -336,7 +336,6 @@ function DataQuality({ data, selectedLocation }) {
           value={summary.biometricRecords}
           note="Rows used for growth analysis"
           variant="blue"
-          imageSrc={kpiDqBiometric}
         />
 
         <KpiCard
@@ -345,7 +344,6 @@ function DataQuality({ data, selectedLocation }) {
           value={summary.fertigationRecords}
           note="Rows used for nutrient tracking"
           variant="purple"
-          imageSrc={kpiDqFertigation}
         />
 
         <KpiCard
@@ -354,7 +352,6 @@ function DataQuality({ data, selectedLocation }) {
           value={`${summary.biometricCompleteness}%`}
           note="Average column completeness"
           variant="emerald"
-          imageSrc={kpiDqQuality}
         />
 
         <KpiCard
@@ -363,7 +360,6 @@ function DataQuality({ data, selectedLocation }) {
           value={summary.strongColumns}
           note="Columns with 70%+ coverage"
           variant="orange"
-          imageSrc={kpiDqStrong}
         />
 
         <KpiCard
@@ -372,7 +368,6 @@ function DataQuality({ data, selectedLocation }) {
           value={summary.weakColumns}
           note="Columns below 40% coverage"
           danger={summary.weakColumns > 0}
-          imageSrc={kpiDqWeak}
         />
       </section>
 

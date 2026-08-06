@@ -46,13 +46,24 @@ function TreatmentMaster({ data, selectedLocation }) {
         (loc) => loc.location_id === row.location_id
       );
 
+      let computedPlotLabel = row.plot_label;
+      if (data.plots) {
+        const matchedPlots = data.plots.filter(
+          (p) => p.location_id === row.location_id && p.treatment_id === row.treatment_id
+        );
+        if (matchedPlots.length > 0) {
+          computedPlotLabel = matchedPlots.map((p) => p.plot_name).join(", ");
+        }
+      }
+
       return {
         ...row,
         location_name: location?.location_short_name || row.location_id,
         category: getTreatmentCategory(row.treatment_details),
+        computed_plot_label: computedPlotLabel
       };
     });
-  }, [rows, data.locations]);
+  }, [rows, data.locations, data.plots]);
 
   const summary = useMemo(() => {
     const locationSet = new Set(
@@ -69,13 +80,12 @@ function TreatmentMaster({ data, selectedLocation }) {
       enhancedRows.map((row) => row.category).filter(Boolean)
     );
 
-    let plotLabelCount = enhancedRows.filter(
-      (row) => row.plot_label && row.plot_label !== "-"
-    ).length;
-
-    if (selectedLocation === "L001") {
-      plotLabelCount = 28;
-    }
+    let plotLabelCount = 0;
+    enhancedRows.forEach((row) => {
+      if (row.computed_plot_label && row.computed_plot_label !== "-") {
+        plotLabelCount += row.computed_plot_label.split(",").length;
+      }
+    });
 
     return {
       totalLocations: locationSet.size,
@@ -209,7 +219,7 @@ function TreatmentMaster({ data, selectedLocation }) {
                       <td>
                         <strong>{row.treatment_id}</strong>
                       </td>
-                      <td>{row.plot_label || "-"}</td>
+                      <td>{row.computed_plot_label || "-"}</td>
                       <td>
                         <span className={`category-badge ${getCategoryClass(row.category)}`}>
                           {row.category}
