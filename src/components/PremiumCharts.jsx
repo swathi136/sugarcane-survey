@@ -326,7 +326,6 @@ export const premiumTooltipStyle = {
   boxShadow: "0 8px 32px rgba(10,40,20,0.12), 0 2px 6px rgba(10,40,20,0.06), inset 0 1px 0 rgba(255,255,255,1)",
   padding: "12px 16px",
   backdropFilter: "blur(8px)",
-  fontFamily: "'Inter', sans-serif",
 };
 
 export const premiumTooltipLabelStyle = {
@@ -353,12 +352,10 @@ export const premiumAxisTick = {
   fontSize: 12,
   fill: "#6B8A6B",
   fontWeight: 500,
-  fontFamily: "'Inter', sans-serif",
 };
 
 // ── 10. PREMIUM LEGEND STYLE ──────────────────────────────────────────
 export const premiumLegendStyle = {
-  fontFamily: "'Inter', sans-serif",
   fontSize: 12,
   fontWeight: 600,
   color: "#2D4A2D",

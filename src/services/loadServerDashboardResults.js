@@ -50,3 +50,21 @@ export async function loadServerDashboardReferenceData() {
   if (error) return { data: null, error };
   return { data, error: null };
 }
+
+export function buildPreparedDashboardData(results, reference, comparison) {
+  return {
+    biometric: [],
+    fertigation: [],
+    comparisonBiometric: comparison.biometric || [],
+    comparisonFertigation: comparison.fertigation || [],
+    locations: reference.data.locations || [],
+    plots: reference.data.plots || [],
+    treatments: reference.data.treatments || [],
+    cropStageSplit: reference.data.cropStageSplit || [],
+    fertilizerStock: reference.data.fertilizerStock || [],
+    fertigationSummary: reference.data.fertigationSummary || [],
+    serverResultsByLocation: results.byLocation,
+    serverCalculationParity: [],
+    dashboardDataSource: "supabase-prepared-results",
+  };
+}

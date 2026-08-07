@@ -378,14 +378,11 @@ function TreatmentComparison({ data, selectedLocation }) {
               <tr>
                 <th>Rank</th>
                 <th>Treatment</th>
-                <th>Performance</th>
-                <th>Score</th>
                 <th>Avg Height</th>
                 <th>Avg Tillers</th>
                 <th>Avg Leaves</th>
-                <th>Leaf Length</th>
-                <th>Leaf Breadth</th>
-                <th>Records</th>
+                <th>Score</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -403,20 +400,17 @@ function TreatmentComparison({ data, selectedLocation }) {
                     <td>
                       <strong>{row.treatment}</strong>
                     </td>
+                    <td>{row.avgPlantHeight} cm</td>
+                    <td>{row.avgTillers}</td>
+                    <td>{row.avgLeaves}</td>
+                    <td>
+                      <strong>{row.performanceScore}</strong>
+                    </td>
                     <td>
                       <span className={`status-pill ${statusClass}`}>
                         {statusLabel}
                       </span>
                     </td>
-                    <td>
-                      <strong>{row.performanceScore}</strong>
-                    </td>
-                    <td>{row.avgPlantHeight} cm</td>
-                    <td>{row.avgTillers}</td>
-                    <td>{row.avgLeaves}</td>
-                    <td>{row.avgLeafLength} cm</td>
-                    <td>{row.avgLeafBreadth} cm</td>
-                    <td>{row.recordCount}</td>
                   </tr>
                 );
               })}

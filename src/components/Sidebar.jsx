@@ -9,9 +9,10 @@ import {
   TrendingUp,
   DatabaseZap,
   GitCompare,
+  ChartNoAxesCombined,
   Menu,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const menuItems = [
   {
@@ -45,6 +46,11 @@ const menuItems = [
     icon: GitCompare,
   },
   {
+    id: "advanced-comparison",
+    label: "Advanced Comparison",
+    icon: ChartNoAxesCombined,
+  },
+  {
     id: "smart-alerts",
     label: "Smart Alerts",
     icon: Bell,
@@ -63,16 +69,29 @@ const menuItems = [
 
 function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, onBackToPortal, portalName, isExpanded, setIsExpanded }) {
   const [isHovered, setIsHovered] = useState(false);
+  const hoverLeaveTimer = useRef(null);
   const showExpanded = isExpanded || isHovered;
+
+  useEffect(() => () => clearTimeout(hoverLeaveTimer.current), []);
+
+  function handleMouseEnter() {
+    clearTimeout(hoverLeaveTimer.current);
+    setIsHovered(true);
+  }
+
+  function handleMouseLeave() {
+    clearTimeout(hoverLeaveTimer.current);
+    hoverLeaveTimer.current = setTimeout(() => setIsHovered(false), 120);
+  }
 
   return (
     <aside 
       className={`sidebar ${showExpanded ? 'expanded' : 'collapsed'}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <div className="brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: showExpanded ? '14px 12px' : '14px 0', transition: 'padding 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: showExpanded ? '160px' : '0px', opacity: showExpanded ? 1 : 0, transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)', whiteSpace: 'nowrap' }}>
+      <div className="brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: showExpanded ? '14px 12px' : '14px 0', transition: 'padding var(--sidebar-motion)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: showExpanded ? '160px' : '0px', opacity: showExpanded ? 1 : 0, transition: 'width var(--sidebar-motion), opacity 0.22s ease', whiteSpace: 'nowrap' }}>
           <div className="brand-icon">
             <Sprout size={22} />
           </div>
@@ -97,7 +116,7 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
           maxHeight: showExpanded ? '60px' : '0px', 
           opacity: showExpanded ? 1 : 0, 
           overflow: 'hidden', 
-          transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' 
+          transition: 'padding var(--sidebar-motion), max-height var(--sidebar-motion), opacity 0.22s ease'
         }}>
           <button
             className="nav-item"
@@ -129,7 +148,7 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
           maxHeight: showExpanded ? '60px' : '0px', 
           opacity: showExpanded ? 1 : 0, 
           overflow: 'hidden', 
-          transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' 
+          transition: 'padding var(--sidebar-motion), max-height var(--sidebar-motion), opacity 0.22s ease'
         }}>
           <button
             className="nav-item"
@@ -177,7 +196,7 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
                 opacity: showExpanded ? 1 : 0,
                 maxWidth: showExpanded ? '200px' : '0px',
                 transform: showExpanded ? 'translateX(0)' : 'translateX(-10px)',
-                transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                transition: 'max-width var(--sidebar-motion), transform var(--sidebar-motion), opacity 0.2s ease',
                 whiteSpace: 'nowrap'
               }}>
                 {item.label}
@@ -191,7 +210,7 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
         opacity: showExpanded ? 1 : 0,
         maxHeight: showExpanded ? '50px' : '0px',
         overflow: 'hidden',
-        transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        transition: 'max-height var(--sidebar-motion), padding-top var(--sidebar-motion), opacity 0.22s ease',
         paddingTop: showExpanded ? '16px' : '0px',
         borderTop: showExpanded ? '1px solid var(--border)' : 'none',
         whiteSpace: 'nowrap'

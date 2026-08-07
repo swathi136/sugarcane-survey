@@ -586,7 +586,7 @@ function Reports({ data, selectedLocation }) {
           <title>Sugarcane Survey Report</title>
           <style>
             body {
-              font-family: Arial, sans-serif;
+              font-family: "Inter", sans-serif;
               color: #12351f;
               padding: 28px;
               line-height: 1.5;

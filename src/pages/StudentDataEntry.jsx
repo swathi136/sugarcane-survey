@@ -951,7 +951,6 @@ function StudentDataEntry({
         minHeight: "100vh",
         background: "#f8fafc",
         padding: "24px 32px",
-        fontFamily: "Inter, system-ui, -apple-system, sans-serif",
       }}
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>

@@ -1,0 +1,103 @@
+/* Central typography system for every dashboard surface. */
+:root {
+  --font-family-app: "Inter", sans-serif;
+  --font-weight-light: 300;
+  --font-weight-body: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+}
+
+html,
+body,
+#root,
+#root * {
+  font-family: var(--font-family-app) !important;
+}
+
+body {
+  font-size: 14px;
+  font-weight: var(--font-weight-body);
+}
+
+#root button,
+#root [role="button"] {
+  font-size: 15px !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+#root select,
+#root option {
+  font-size: 15px !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+#root label,
+#root label > span,
+#root th,
+#root .field-label,
+#root .form-label {
+  font-size: 14px !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.top-header h1,
+.page-toolbar h2,
+.admin-approval-page > header h1 {
+  font-size: 32px;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.section-title,
+.section-header h2,
+.methodology-note > h3 {
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+}
+
+.card-title,
+.card-header h3,
+.comparison-card h3 {
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+}
+
+.chart-title,
+.chart-card h3,
+.advanced-chart-title,
+section:has(.recharts-responsive-container) h3 {
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+}
+
+#root .recharts-wrapper,
+#root .recharts-xAxis .recharts-cartesian-axis-tick text,
+#root .recharts-yAxis .recharts-cartesian-axis-tick text,
+#root .recharts-label,
+#root .recharts-legend-item-text {
+  font-size: 14px !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+#root .recharts-tooltip-wrapper,
+#root .recharts-default-tooltip,
+#root .recharts-default-tooltip * {
+  font-size: 14px !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+.empty-state,
+.empty-state-box,
+.screen-state-card,
+[role="dialog"] {
+  font-family: var(--font-family-app) !important;
+}
+
+@media (max-width: 700px) {
+  .top-header h1,
+  .page-toolbar h2,
+  .admin-approval-page > header h1 {
+    font-size: 26px;
+  }
+}

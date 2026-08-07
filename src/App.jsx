@@ -1,9 +1,11 @@
 import ComparativeAnalysis from "./pages/ComparativeAnalysis";
+import AdvancedComparison from "./pages/AdvancedComparison";
 import DataQuality from "./pages/DataQuality";/*data-quality*/
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, Sprout, Mail, Lock, GraduationCap, ShieldCheck, Loader2, CheckCircle2, AlertCircle, MailCheck, KeyRound, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./utils/supabaseClient";
 import "./App.css";
+import "./typography.css";
 
 import LoadingScreen from "./components/LoadingScreen";
 import ErrorScreen from "./components/ErrorScreen";
@@ -24,7 +26,9 @@ import { buildAnthiyurPlotLookup } from "./utils/anthiyur/buildAnthiyurPlotLooku
 import { normalizeApprovedAnthiyurRows } from "./utils/normalizers/normalizeApprovedAnthiyurRows";
 import { mergeAnthiyurDashboardData } from "./utils/mergeAnthiyurDashboardData";
 import { buildDashboardCalculationSnapshots } from "./utils/buildDashboardCalculationSnapshots";
-import { loadServerDashboardReferenceData, loadServerDashboardResults } from "./services/loadServerDashboardResults";
+import { buildPreparedDashboardData, loadServerDashboardReferenceData, loadServerDashboardResults } from "./services/loadServerDashboardResults";
+import { loadDashboardComparisonBiometricRows } from "./services/loadDashboardComparisonBiometricRows";
+import { loadDashboardComparisonFertigationRows } from "./services/loadDashboardComparisonFertigationRows";
 import { compareDashboardCalculationParity } from "./utils/compareDashboardCalculationParity";
 
 import Overview from "./pages/Overview";
@@ -182,25 +186,23 @@ async function loadLegacyDashboardDataWithApprovedEntries(authContext) {
 }
 
 async function loadDashboardDataWithApprovedEntries(authContext) {
-  const [results, reference] = await Promise.all([
+  const [resultsSettled, referenceSettled, biometricSettled, fertigationSettled] = await Promise.allSettled([
     loadServerDashboardResults(),
     loadServerDashboardReferenceData(),
+    loadDashboardComparisonBiometricRows(),
+    loadDashboardComparisonFertigationRows(),
   ]);
 
+  const results = resultsSettled.status === "fulfilled" ? resultsSettled.value : { byLocation: {}, error: resultsSettled.reason };
+  const reference = referenceSettled.status === "fulfilled" ? referenceSettled.value : { data: null, error: referenceSettled.reason };
+
   if (!results.error && !reference.error && results.byLocation.All) {
-    return {
-      biometric: [],
-      fertigation: [],
-      locations: reference.data.locations || [],
-      plots: reference.data.plots || [],
-      treatments: reference.data.treatments || [],
-      cropStageSplit: reference.data.cropStageSplit || [],
-      fertilizerStock: reference.data.fertilizerStock || [],
-      fertigationSummary: reference.data.fertigationSummary || [],
-      serverResultsByLocation: results.byLocation,
-      serverCalculationParity: [],
-      dashboardDataSource: "supabase-prepared-results",
-    };
+    const biometricResult = biometricSettled.status === "fulfilled" ? biometricSettled.value : { rows: [], error: biometricSettled.reason };
+    const fertigationResult = fertigationSettled.status === "fulfilled" ? fertigationSettled.value : { rows: [], error: fertigationSettled.reason };
+    if (biometricResult.error) console.warn("Comparison biometric data could not be loaded; existing dashboard pages remain available.", biometricResult.error);
+    if (fertigationResult.error) console.warn("Comparison fertigation data could not be loaded; existing dashboard pages remain available.", fertigationResult.error);
+    const comparison = { biometric: biometricResult.rows, fertigation: fertigationResult.rows };
+    return buildPreparedDashboardData(results, reference, comparison);
   }
 
   console.warn("Prepared Supabase dashboard data was unavailable; loading the legacy CSV fallback.", {
@@ -209,6 +211,7 @@ async function loadDashboardDataWithApprovedEntries(authContext) {
   });
   return loadLegacyDashboardDataWithApprovedEntries(authContext);
 }
+
 
 function App() {
   const [view, setView] = useState("landing");
@@ -618,6 +621,10 @@ function App() {
         subtitle:
           "Location-wise, treatment-wise, day-wise biometric, and fertigation comparison."
       },
+      "advanced-comparison": {
+        title: "Advanced Comparison",
+        subtitle: "Compare biometric measurements and fertilizer response across locations and plots.",
+      },
       "smart-alerts": {
         title: "Smart Alerts",
         subtitle:
@@ -675,6 +682,9 @@ function App() {
       return (
         <ComparativeAnalysis data={data} selectedLocation={selectedLocation} searchTerm={searchTerm} />
       );
+    }
+    if (activePage === "advanced-comparison") {
+      return <AdvancedComparison data={data} />;
     }
 
     if (activePage === "smart-alerts") {

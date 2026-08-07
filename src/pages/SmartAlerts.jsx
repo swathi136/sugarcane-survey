@@ -207,7 +207,7 @@ function SmartAlerts({ data, selectedLocation }) {
         </div>
       </section>
 
-      <section className="kpi-grid">
+      <section className="kpi-grid light-kpi-grid">
         <KpiCard
           icon={<Bell />}
           title="Total Alerts"

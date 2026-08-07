@@ -549,7 +549,7 @@ function AdminApprovalPortal({ authSession, onBackToDashboard, onSignOut }) {
   };
 
   return (
-    <div className="admin-approval-page" style={{ minHeight: "100vh", background: "linear-gradient(145deg, #f8fafc 0%, #f0fdf4 100%)", padding: "28px 32px 48px", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="admin-approval-page" style={{ minHeight: "100vh", background: "linear-gradient(145deg, #f8fafc 0%, #f0fdf4 100%)", padding: "28px 32px 48px" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <header className="admin-approval-header" style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 16, flexWrap: "wrap", borderTop: "4px solid #15803d" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

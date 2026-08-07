@@ -329,7 +329,7 @@ function DataQuality({ data, selectedLocation }) {
         </div>
       </section>
 
-      <section className="kpi-grid">
+      <section className="kpi-grid light-kpi-grid">
         <KpiCard
           icon={<Database />}
           title="Biometric Records"
