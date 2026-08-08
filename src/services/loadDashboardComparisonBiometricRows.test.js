@@ -17,10 +17,10 @@ describe("loadDashboardComparisonBiometricRows", () => {
     expect(range).toHaveBeenCalledWith(0, 999);
   });
 
-  it("returns an isolated empty result and useful error", async () => {
+  it("propagates a useful source-specific error", async () => {
     const error = new Error("unavailable");
     range.mockResolvedValueOnce({ data: null, error });
-    await expect(loadDashboardComparisonBiometricRows()).resolves.toEqual({ rows: [], error });
+    await expect(loadDashboardComparisonBiometricRows()).rejects.toThrow('dashboard_biometric_source');
   });
 
   it("loads every deterministic RPC page", async () => {

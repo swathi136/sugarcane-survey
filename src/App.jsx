@@ -13,23 +13,6 @@ import ErrorScreen from "./components/ErrorScreen";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import { loadDashboardData } from "./utils/dataLoader";
-import { loadApprovedCollegeData } from "./services/loadApprovedCollegeData";
-import { normalizeApprovedCollegeRows } from "./utils/normalizers/normalizeApprovedCollegeRows";
-import { mergeCollegeDashboardData } from "./utils/mergeCollegeDashboardData";
-import { buildCollegePlotLookup } from "./utils/college/buildCollegePlotLookup";
-import { loadApprovedAthaniData } from "./services/loadApprovedAthaniData";
-import { buildAthaniPlotLookup } from "./utils/athani/buildAthaniPlotLookup";
-import { normalizeApprovedAthaniRows } from "./utils/normalizers/normalizeApprovedAthaniRows";
-import { mergeAthaniDashboardData } from "./utils/mergeAthaniDashboardData";
-import { loadApprovedAnthiyurData } from "./services/loadApprovedAnthiyurData";
-import { buildAnthiyurPlotLookup } from "./utils/anthiyur/buildAnthiyurPlotLookup";
-import { normalizeApprovedAnthiyurRows } from "./utils/normalizers/normalizeApprovedAnthiyurRows";
-import { mergeAnthiyurDashboardData } from "./utils/mergeAnthiyurDashboardData";
-import { buildDashboardCalculationSnapshots } from "./utils/buildDashboardCalculationSnapshots";
-import { buildPreparedDashboardData, loadServerDashboardReferenceData, loadServerDashboardResults } from "./services/loadServerDashboardResults";
-import { loadDashboardComparisonBiometricRows } from "./services/loadDashboardComparisonBiometricRows";
-import { loadDashboardComparisonFertigationRows } from "./services/loadDashboardComparisonFertigationRows";
-import { compareDashboardCalculationParity } from "./utils/compareDashboardCalculationParity";
 
 import Overview from "./pages/Overview";
 import TreatmentMaster from "./pages/TreatmentMaster";
@@ -45,174 +28,9 @@ import LandingPage from "./components/LandingPage";
 import { sendRejectionNotification } from "./utils/emailService";
 import { fetchAllSubmissions, updateSubmissionStatus, updateSubmissionData } from "./services/fieldEntryService";
 
-async function loadLegacyDashboardDataWithApprovedEntries(authContext) {
-  const csvData = await loadDashboardData();
-
-  if (!isSupabaseConfigured) return csvData;
-
-  const [collegeSettled, athaniSettled, anthiyurSettled] = await Promise.allSettled([
-    loadApprovedCollegeData(),
-    loadApprovedAthaniData(),
-    loadApprovedAnthiyurData(),
-  ]);
-
-  let mergedData = csvData;
-  let collegeDiagnostics = null;
-  let athaniDiagnostics = null;
-  let anthiyurDiagnostics = null;
-
-  const approvedResult = collegeSettled.status === "fulfilled" ? collegeSettled.value : null;
-  if (!approvedResult || approvedResult.error) {
-    if (import.meta.env.DEV) {
-      console.error(
-        "Approved College dashboard data could not be loaded; using the CSV baseline.",
-        approvedResult?.error || collegeSettled.reason,
-      );
-    }
-  } else {
-    const collegePlotLookup = buildCollegePlotLookup(csvData.plots || []);
-    const normalized = normalizeApprovedCollegeRows(approvedResult.rows, collegePlotLookup);
-    const merged = mergeCollegeDashboardData(mergedData, normalized);
-    mergedData = merged.data;
-    collegeDiagnostics = { normalized, merged };
-  }
-
-  const athaniResult = athaniSettled.status === "fulfilled" ? athaniSettled.value : null;
-  if (!athaniResult || athaniResult.error) {
-    if (import.meta.env.DEV) {
-      console.error(
-        "Approved Athani dashboard data could not be loaded; preserving available dashboard data.",
-        athaniResult?.error || athaniSettled.reason,
-      );
-    }
-  } else {
-    const athaniPlotLookup = buildAthaniPlotLookup(csvData.plots || []);
-    const normalized = normalizeApprovedAthaniRows(athaniResult.rows, athaniPlotLookup);
-    const merged = mergeAthaniDashboardData(mergedData, normalized);
-    mergedData = merged.data;
-    athaniDiagnostics = { normalized, merged, fetchCount: athaniResult.rows.length };
-  }
-
-  const anthiyurResult = anthiyurSettled.status === "fulfilled" ? anthiyurSettled.value : null;
-  if (!anthiyurResult || anthiyurResult.error) {
-    if (import.meta.env.DEV) {
-      console.error(
-        "Approved Anthiyur dashboard data could not be loaded; preserving available dashboard data.",
-        anthiyurResult?.error || anthiyurSettled.reason,
-      );
-    }
-  } else {
-    const anthiyurPlotLookup = buildAnthiyurPlotLookup(csvData.plots || []);
-    const normalized = normalizeApprovedAnthiyurRows(anthiyurResult.rows, anthiyurPlotLookup);
-    const merged = mergeAnthiyurDashboardData(mergedData, normalized);
-    mergedData = merged.data;
-    anthiyurDiagnostics = { normalized, merged, fetchCount: anthiyurResult.rows.length };
-  }
-
-  if (import.meta.env.DEV && collegeDiagnostics) {
-    const { normalized, merged } = collegeDiagnostics;
-    console.info("Approved College dashboard merge", {
-      authInitialized: authContext.initialized,
-      authenticatedUserId: authContext.userId || null,
-      csvBiometricCount: csvData.biometric?.length || 0,
-      csvFertigationCount: csvData.fertigation?.length || 0,
-      approvedFetchCount: approvedResult.rows.length,
-      approvedRowIds: approvedResult.rows.map((row) => row.id),
-      normalizedBiometricCount: normalized.biometric.length,
-      normalizedFertigationCount: normalized.fertigation.length,
-      ...merged.diagnostics,
-      excludedFields: normalized.diagnostics,
-      finalBiometricCount: merged.data.biometric.length,
-      finalFertigationCount: merged.data.fertigation.length,
-    });
-  }
-
-  if (import.meta.env.DEV && athaniDiagnostics) {
-    const { normalized, merged, fetchCount } = athaniDiagnostics;
-    console.info("Approved Athani dashboard merge", {
-      approvedFetchCount: fetchCount,
-      normalizedBiometricCount: normalized.biometric.length,
-      normalizedFertigationCount: normalized.fertigation.length,
-      diagnosticsCount: normalized.diagnostics.length,
-      unmappedPlotCount: normalized.diagnostics.filter((item) => item.field === "plot").length,
-      biometricDuplicateCount: merged.diagnostics.biometric.duplicateCount,
-      fertigationDuplicateCount: merged.diagnostics.fertigation.duplicateCount,
-      ambiguousFertigationCount: merged.diagnostics.fertigation.ambiguousKeys.length,
-      approvedBiometricIdsSurviving: merged.diagnostics.biometric.approvedIdsSurviving,
-      approvedFertigationIdsSurviving: merged.diagnostics.fertigation.approvedIdsSurviving,
-      finalBiometricCount: merged.data.biometric.length,
-      finalFertigationCount: merged.data.fertigation.length,
-    });
-  }
-
-  if (import.meta.env.DEV && anthiyurDiagnostics) {
-    const { normalized, merged, fetchCount } = anthiyurDiagnostics;
-    console.info("Approved Anthiyur dashboard merge", {
-      approvedFetchCount: fetchCount,
-      normalizedBiometricCount: normalized.biometric.length,
-      normalizedFertigationCount: normalized.fertigation.length,
-      diagnosticsCount: normalized.diagnostics.length,
-      unknownPlotCount: normalized.diagnostics.filter((item) => item.field === "plot").length,
-      biometricAddedCount: merged.diagnostics.biometricAdded,
-      biometricDuplicateIdCount: merged.diagnostics.biometricDuplicateIds,
-      fertigationAddedCount: merged.diagnostics.fertigationAdded,
-      fertigationReplacedCount: merged.diagnostics.fertigationReplaced,
-      fertigationAmbiguousCount: merged.diagnostics.fertigationAmbiguous.length,
-      finalBiometricCount: merged.diagnostics.finalBiometricCount,
-      finalFertigationCount: merged.diagnostics.finalFertigationCount,
-    });
-  }
-
-  const serverResults = await loadServerDashboardResults();
-  const parity = serverResults.error
-    ? []
-    : compareDashboardCalculationParity(
-        buildDashboardCalculationSnapshots(mergedData),
-        serverResults.byLocation,
-      );
-
-  if (import.meta.env.DEV && (serverResults.error || parity.some((item) => !item.matches))) {
-    console.warn("Server dashboard calculation parity is not ready for cutover", {
-      error: serverResults.error,
-      parity,
-    });
-  }
-
-  return {
-    ...mergedData,
-    serverResultsByLocation: serverResults.byLocation,
-    serverCalculationParity: parity,
-  };
+async function loadDashboardDataWithApprovedEntries() {
+  return loadDashboardData();
 }
-
-async function loadDashboardDataWithApprovedEntries(authContext) {
-  const [resultsSettled, referenceSettled, biometricSettled, fertigationSettled] = await Promise.allSettled([
-    loadServerDashboardResults(),
-    loadServerDashboardReferenceData(),
-    loadDashboardComparisonBiometricRows(),
-    loadDashboardComparisonFertigationRows(),
-  ]);
-
-  const results = resultsSettled.status === "fulfilled" ? resultsSettled.value : { byLocation: {}, error: resultsSettled.reason };
-  const reference = referenceSettled.status === "fulfilled" ? referenceSettled.value : { data: null, error: referenceSettled.reason };
-
-  if (!results.error && !reference.error && results.byLocation.All) {
-    const biometricResult = biometricSettled.status === "fulfilled" ? biometricSettled.value : { rows: [], error: biometricSettled.reason };
-    const fertigationResult = fertigationSettled.status === "fulfilled" ? fertigationSettled.value : { rows: [], error: fertigationSettled.reason };
-    if (biometricResult.error) console.warn("Comparison biometric data could not be loaded; existing dashboard pages remain available.", biometricResult.error);
-    if (fertigationResult.error) console.warn("Comparison fertigation data could not be loaded; existing dashboard pages remain available.", fertigationResult.error);
-    const comparison = { biometric: biometricResult.rows, fertigation: fertigationResult.rows };
-    return buildPreparedDashboardData(results, reference, comparison);
-  }
-
-  console.warn("Prepared Supabase dashboard data was unavailable; loading the legacy CSV fallback.", {
-    resultsError: results.error,
-    referenceError: reference.error,
-  });
-  return loadLegacyDashboardDataWithApprovedEntries(authContext);
-}
-
-
 function App() {
   const [view, setView] = useState("landing");
   const [activePage, setActivePage] = useState("overview");
@@ -567,7 +385,7 @@ function App() {
         console.error("Dashboard data loading error:", err);
         setError(
           err?.message ||
-            "Unable to load dashboard data. Please check the CSV files."
+            "Unable to load dashboard data from Supabase. Please try again."
         );
       }
     } finally {
@@ -742,7 +560,7 @@ function App() {
 
   if (!data) {
     return (
-      <ErrorScreen message="Dashboard data is empty. Please check processed CSV files." />
+      <ErrorScreen message="Dashboard data is empty. Please check the Supabase dashboard sources." />
     );
   }
 

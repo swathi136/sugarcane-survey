@@ -17,9 +17,9 @@ describe("loadDashboardComparisonFertigationRows", () => {
     expect(range).toHaveBeenCalledWith(0, 999);
   });
 
-  it("returns an isolated empty result and useful error", async () => {
+  it("propagates a useful source-specific error", async () => {
     const error = new Error("unavailable");
     range.mockResolvedValueOnce({ data: null, error });
-    await expect(loadDashboardComparisonFertigationRows()).resolves.toEqual({ rows: [], error });
+    await expect(loadDashboardComparisonFertigationRows()).rejects.toThrow('dashboard_fertigation_source');
   });
 });
