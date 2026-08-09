@@ -44,12 +44,26 @@ import {
 } from "../components/PremiumCharts";
 
 /* ── Custom Tooltips ─────────────────────────────────────────────── */
-function BiometricLineTooltip({ active, payload, label, unit }) {
+function BiometricLineTooltip({ active, payload, label, unit, treatments = [] }) {
   if (!active || !payload || !payload.length) return null;
   const color = LINE_COLORS[0].stroke;
+  
+  let details = null;
+  if (label && String(label).startsWith("T") && treatments.length > 0) {
+    const found = treatments.find((t) => String(t.treatment_id).toLowerCase() === String(label).toLowerCase());
+    if (found && found.treatment_details) details = found.treatment_details;
+  }
+
   return (
     <div style={premiumTooltipStyle}>
-      <p style={premiumTooltipLabelStyle}>{label}</p>
+      <p style={premiumTooltipLabelStyle}>
+        {label}
+        {details && (
+          <span style={{ fontSize: 11, fontWeight: 500, color: "#6B8A6B", display: "block", marginTop: 2, whiteSpace: "normal" }}>
+            {details}
+          </span>
+        )}
+      </p>
       <p style={{ ...premiumTooltipItemStyle, color }}>
         {payload[0].value}{" "}
         <span style={{ fontWeight: 500, fontSize: 12, color: "#94A3B8" }}>{unit || ""}</span>
@@ -58,12 +72,26 @@ function BiometricLineTooltip({ active, payload, label, unit }) {
   );
 }
 
-function BiometricBarTooltip({ active, payload, label, unit }) {
+function BiometricBarTooltip({ active, payload, label, unit, treatments = [] }) {
   if (!active || !payload || !payload.length) return null;
   const color = LINE_COLORS[3].stroke;
+
+  let details = null;
+  if (label && String(label).startsWith("T") && treatments.length > 0) {
+    const found = treatments.find((t) => String(t.treatment_id).toLowerCase() === String(label).toLowerCase());
+    if (found && found.treatment_details) details = found.treatment_details;
+  }
+
   return (
     <div style={premiumTooltipStyle}>
-      <p style={premiumTooltipLabelStyle}>{label}</p>
+      <p style={premiumTooltipLabelStyle}>
+        {label}
+        {details && (
+          <span style={{ fontSize: 11, fontWeight: 500, color: "#6B8A6B", display: "block", marginTop: 2, whiteSpace: "normal" }}>
+            {details}
+          </span>
+        )}
+      </p>
       <p style={{ ...premiumTooltipItemStyle, color }}>
         {payload[0].value}{" "}
         <span style={{ fontWeight: 500, fontSize: 12, color: "#94A3B8" }}>{unit || ""}</span>
@@ -347,7 +375,7 @@ function BiometricGrowth({ data, selectedLocation }) {
                 <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
                 <Tooltip
                   content={
-                    <BiometricLineTooltip unit={selectedMetric.unit} />
+                    <BiometricLineTooltip unit={selectedMetric.unit} treatments={data.treatments} />
                   }
                 />
                 <Line
@@ -381,7 +409,7 @@ function BiometricGrowth({ data, selectedLocation }) {
               <XAxis dataKey="treatment" tick={premiumAxisTick} axisLine={false} tickLine={false} />
               <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
               <Tooltip
-                content={<BiometricBarTooltip unit={selectedMetric.unit} />}
+                content={<BiometricBarTooltip unit={selectedMetric.unit} treatments={data.treatments} />}
                 cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }}
               />
               <Bar

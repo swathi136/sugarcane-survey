@@ -4,23 +4,18 @@ export const HEATMAP_METRICS = [
   { key: "leaves", label: "Leaf Count", field: "number_of_leaves", unit: "", decimals: 1 },
   { key: "leaf_length", label: "Leaf Length", field: "leaf_length_cm", unit: "cm", decimals: 1 },
   { key: "leaf_breadth", label: "Leaf Breadth", field: "leaf_breadth_cm", unit: "cm", decimals: 1 },
-  { key: "nodes", label: "Number of Nodes", field: "number_of_nodes", unit: "", decimals: 1 },
+  { key: "nodes", label: "Node Count", field: "number_of_nodes", unit: "", decimals: 1 },
   { key: "node_length", label: "Node Length", field: "node_length_cm", unit: "cm", decimals: 1 },
   { key: "millable_cane", label: "Millable Cane Count", field: "millable_cane_count", unit: "", decimals: 1 },
-  { key: "plant_count_1m", label: "Plant Count at 1 metre", field: "plant_count_1m", unit: "", decimals: 1 },
-  { key: "plant_count_5m", label: "Plant Count at 5 metres", field: "plant_count_5m", unit: "", decimals: 1 },
-  { key: "plant_count_15m", label: "Plant Count at 15 metres", field: "plant_count_15m", unit: "", decimals: 1 },
-  { key: "germination", label: "Germination Percentage", field: "germination_pct", unit: "%", decimals: 1 },
 ];
 
 export const HEATMAP_FERTILIZERS = [
-  { key: "n", label: "Nitrogen", field: "n_kg", unit: "kg" },
+  { key: "n", label: "N", field: "n_kg", unit: "kg" },
   { key: "p2o5", label: "P₂O₅", field: "p2o5_kg", unit: "kg" },
   { key: "k2o", label: "K₂O", field: "k2o_kg", unit: "kg" },
-  { key: "mn", label: "Mn Mixture", field: "mn_mixture_kg", unit: "kg" },
   { key: "urea", label: "Urea", field: "urea_kg", unit: "kg" },
-  { key: "map", label: "MAP", field: "map_kg", unit: "kg" },
   { key: "dap", label: "DAP", field: "dap_kg", unit: "kg" },
+  { key: "map", label: "MAP", field: "map_kg", unit: "kg" },
   { key: "ssp", label: "SSP", field: "ssp_kg", unit: "kg" },
   { key: "mop", label: "MOP", field: "mop_kg", unit: "kg" },
   { key: "white_potash", label: "White Potash", field: "white_potash_kg", unit: "kg" },
@@ -32,80 +27,154 @@ export function finiteHeatmapValue(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function summarize(values, decimals = 1, method = "mean") {
+export function hasValidHeatmapCell(cell) {
+  const value = cell && typeof cell === "object" && Object.hasOwn(cell, "value") ? cell.value : cell;
+  return finiteHeatmapValue(value) !== null;
+}
+
+export function removeEmptyHeatmapColumns(matrix) {
+  const columns = (matrix.columns || []).filter((column) => (
+    (matrix.rows || []).some((row) => hasValidHeatmapCell(row.cells?.[column.key]))
+  ));
+  const columnKeys = new Set(columns.map((column) => column.key));
+  const values = Array.isArray(matrix.values)
+    ? (matrix.rows || []).flatMap((row) => columns.map((column) => finiteHeatmapValue(row.cells?.[column.key]?.value)).filter((value) => value !== null))
+    : Object.fromEntries(Object.entries(matrix.values || {}).filter(([key]) => columnKeys.has(key)));
+  return { ...matrix, columns, values };
+}
+
+function mean(values, decimals = null) {
   const valid = values.map(finiteHeatmapValue).filter((value) => value !== null);
   if (!valid.length) return null;
-  const total = valid.reduce((sum, value) => sum + value, 0);
-  const value = method === "sum" ? total : total / valid.length;
-  return { value: Number(value.toFixed(decimals)), count: valid.length };
+  const value = valid.reduce((sum, item) => sum + item, 0) / valid.length;
+  return decimals === null ? value : Number(value.toFixed(decimals));
 }
 
-function inRange(day, startDay, endDay) {
-  return (startDay === "" || day >= Number(startDay)) && (endDay === "" || day <= Number(endDay));
+function pearson(pairs) {
+  if (pairs.length < 2) return null;
+  const xMean = mean(pairs.map((pair) => pair.x));
+  const yMean = mean(pairs.map((pair) => pair.y));
+  let numerator = 0;
+  let xSquared = 0;
+  let ySquared = 0;
+
+  pairs.forEach(({ x, y }) => {
+    const xDelta = x - xMean;
+    const yDelta = y - yMean;
+    numerator += xDelta * yDelta;
+    xSquared += xDelta * xDelta;
+    ySquared += yDelta * yDelta;
+  });
+
+  const denominator = Math.sqrt(xSquared * ySquared);
+  if (!denominator) return null;
+  return Number((numerator / denominator).toFixed(3));
 }
 
-function plotLookup(plots) {
-  return new Map(plots.map((plot) => [`${plot.location_id}|${plot.plot_id}`, plot]));
+function selectedLocationName(locations, locationId) {
+  const location = locations.find((item) => item.location_id === locationId);
+  return location?.location_short_name || location?.location_name || locationId;
 }
 
-function locationLookup(locations) {
-  return new Map(locations.map((location) => [location.location_id, location.location_short_name || location.location_name || location.location_id]));
+function groupRowsByPlot(rows) {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    if (!row.plot_id) return;
+    if (!grouped.has(row.plot_id)) grouped.set(row.plot_id, []);
+    grouped.get(row.plot_id).push(row);
+  });
+  return grouped;
 }
 
-export function buildBiometricHeatmap({ rows, plots = [], locations = [], metric, startDay = "", endDay = "", locationId = "", plotKey = "" }) {
-  if (!metric) return { rows: [], days: [], values: [] };
-  const selected = rows.filter((row) => {
+function cumulativeForPlot(rows, day, field) {
+  const values = rows
+    .filter((row) => {
+      const rowDay = finiteHeatmapValue(row.day_after_planting);
+      return rowDay !== null && rowDay <= day;
+    })
+    .map((row) => finiteHeatmapValue(row[field]))
+    .filter((value) => value !== null);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+export function buildFertilizerMetricHeatmap({
+  biometricRows = [],
+  fertigationRows = [],
+  locations = [],
+  locationId = "",
+  observationDay = "",
+}) {
+  const day = finiteHeatmapValue(observationDay);
+  if (!locationId || day === null) return { rows: [], columns: HEATMAP_METRICS, values: [], locationName: "", day };
+
+  const biometricByPlot = groupRowsByPlot(biometricRows.filter((row) => (
+    row.location_id === locationId && finiteHeatmapValue(row.observation_day) === day
+  )));
+  const fertigationByPlot = groupRowsByPlot(fertigationRows.filter((row) => row.location_id === locationId));
+
+  const matrixRows = HEATMAP_FERTILIZERS.map((fertilizer) => {
+    const cells = Object.fromEntries(HEATMAP_METRICS.map((metric) => {
+      const pairs = [];
+      biometricByPlot.forEach((plotRows, plotId) => {
+        const metricValue = mean(plotRows.map((row) => row[metric.field]));
+        const fertilizerValue = cumulativeForPlot(fertigationByPlot.get(plotId) || [], day, fertilizer.field);
+        if (metricValue !== null && fertilizerValue !== null) pairs.push({ x: fertilizerValue, y: metricValue });
+      });
+      const value = pearson(pairs);
+      return [metric.key, value === null ? null : { value, count: pairs.length }];
+    }));
+    return { key: fertilizer.key, label: fertilizer.label, fertilizer, cells };
+  });
+
+  return removeEmptyHeatmapColumns({
+    rows: matrixRows,
+    columns: HEATMAP_METRICS,
+    values: matrixRows.flatMap((row) => HEATMAP_METRICS.map((metric) => row.cells[metric.key]?.value).filter((value) => value !== undefined)),
+    locationId,
+    locationName: selectedLocationName(locations, locationId),
+    day,
+  });
+}
+
+export function buildDayMetricHeatmap({
+  biometricRows = [],
+  locations = [],
+  locationId = "",
+  startDay = "",
+  endDay = "",
+}) {
+  const start = finiteHeatmapValue(startDay);
+  const end = finiteHeatmapValue(endDay);
+  if (!locationId || start === null || end === null || start > end) {
+    return { rows: [], columns: HEATMAP_METRICS, values: [], locationName: "", startDay: start, endDay: end };
+  }
+
+  const selected = biometricRows.filter((row) => {
     const day = finiteHeatmapValue(row.observation_day);
-    const key = `${row.location_id}|${row.plot_id}`;
-    return day !== null && inRange(day, startDay, endDay) && (!locationId || row.location_id === locationId) && (!plotKey || key === plotKey);
+    return row.location_id === locationId && day !== null && day >= start && day <= end;
   });
-  const days = [...new Set(selected.map((row) => Number(row.observation_day)))].sort((a, b) => a - b);
-  const plotsByKey = plotLookup(plots);
-  const locationsById = locationLookup(locations);
-  const identities = [...new Set(selected.map((row) => `${row.location_id}|${row.plot_id}`))].sort();
-  const matrixRows = identities.map((key) => {
-    const [rowLocationId, plotId] = key.split("|");
-    const plot = plotsByKey.get(key);
-    const source = selected.find((row) => row.location_id === rowLocationId && row.plot_id === plotId);
-    const cells = Object.fromEntries(days.map((day) => [day, summarize(selected.filter((row) => row.location_id === rowLocationId && row.plot_id === plotId && Number(row.observation_day) === day).map((row) => row[metric.field]), metric.decimals)]));
-    return { key, locationId: rowLocationId, locationName: locationsById.get(rowLocationId) || source?.location_name || rowLocationId, plotId, plotLabel: plot?.plot_name || plot?.plot_label || source?.plot_label || plotId, treatment: plot?.treatment_id || source?.treatment_id || "Not mapped", cells };
+  const days = [...new Set(selected.map((row) => finiteHeatmapValue(row.observation_day)))].sort((a, b) => a - b);
+  const matrixRows = days.map((day) => {
+    const dayRows = selected.filter((row) => finiteHeatmapValue(row.observation_day) === day);
+    const cells = Object.fromEntries(HEATMAP_METRICS.map((metric) => {
+      const valid = dayRows.map((row) => finiteHeatmapValue(row[metric.field])).filter((value) => value !== null);
+      if (!valid.length) return [metric.key, null];
+      return [metric.key, { value: mean(valid, metric.decimals), count: valid.length }];
+    }));
+    return { key: String(day), day, cells };
   });
-  return { rows: matrixRows, days, values: matrixRows.flatMap((row) => days.map((day) => row.cells[day]?.value).filter((value) => value !== undefined)) };
-}
 
-export function buildFertilizerHeatmap({ rows, plots = [], locations = [], fertilizer, startDay = "", endDay = "", locationId = "", plotKey = "" }) {
-  if (!fertilizer) return { rows: [], days: [], values: [] };
-  const selected = rows.filter((row) => {
-    const day = finiteHeatmapValue(row.day_after_planting);
-    const key = `${row.location_id}|${row.plot_id}`;
-    return day !== null && inRange(day, startDay, endDay) && (!locationId || row.location_id === locationId) && (!plotKey || key === plotKey);
+  const values = Object.fromEntries(HEATMAP_METRICS.map((metric) => [
+    metric.key,
+    matrixRows.map((row) => row.cells[metric.key]?.value).filter((value) => value !== undefined),
+  ]));
+  return removeEmptyHeatmapColumns({
+    rows: matrixRows,
+    columns: HEATMAP_METRICS,
+    values,
+    locationId,
+    locationName: selectedLocationName(locations, locationId),
+    startDay: start,
+    endDay: end,
   });
-  const days = [...new Set(selected.map((row) => Number(row.day_after_planting)))].sort((a, b) => a - b);
-  const plotsByKey = plotLookup(plots);
-  const locationsById = locationLookup(locations);
-  const identities = [...new Set(selected.map((row) => `${row.location_id}|${row.plot_id}`))].sort();
-  const matrixRows = identities.map((key) => {
-    const [rowLocationId, plotId] = key.split("|");
-    const plot = plotsByKey.get(key);
-    const source = selected.find((row) => row.location_id === rowLocationId && row.plot_id === plotId);
-    const cells = Object.fromEntries(days.map((day) => [day, summarize(selected.filter((row) => row.location_id === rowLocationId && row.plot_id === plotId && Number(row.day_after_planting) === day).map((row) => row[fertilizer.field]), 2, "sum")]));
-    return { key, locationId: rowLocationId, locationName: locationsById.get(rowLocationId) || source?.location_name || rowLocationId, plotId, plotLabel: plot?.plot_name || plot?.plot_label || source?.plot_label || plotId, treatment: plot?.treatment_id || source?.treatment_id || "Not mapped", cells };
-  });
-  return { rows: matrixRows, days, values: matrixRows.flatMap((row) => days.map((day) => row.cells[day]?.value).filter((value) => value !== undefined)) };
-}
-
-export function buildTreatmentHeatmap({ rows, locations = [], metric, startDay = "", endDay = "", locationId = "" }) {
-  if (!metric || !locationId) return { rows: [], days: [], values: [] };
-  const selected = rows.filter((row) => {
-    const day = finiteHeatmapValue(row.observation_day);
-    return row.location_id === locationId && row.treatment_id && day !== null && inRange(day, startDay, endDay);
-  });
-  const days = [...new Set(selected.map((row) => Number(row.observation_day)))].sort((a, b) => a - b);
-  const treatments = [...new Set(selected.map((row) => row.treatment_id))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-  const locationName = locationLookup(locations).get(locationId) || locationId;
-  const matrixRows = treatments.map((treatment) => {
-    const cells = Object.fromEntries(days.map((day) => [day, summarize(selected.filter((row) => row.treatment_id === treatment && Number(row.observation_day) === day).map((row) => row[metric.field]), metric.decimals)]));
-    return { key: `${locationId}|${treatment}`, locationId, locationName, treatment, cells };
-  });
-  return { rows: matrixRows, days, values: matrixRows.flatMap((row) => days.map((day) => row.cells[day]?.value).filter((value) => value !== undefined)) };
 }

@@ -1,4 +1,5 @@
-import { Search, LogIn, LogOut, UserCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, LogIn, LogOut, UserCheck, Menu, Bell, Clock3, ArrowLeft } from "lucide-react";
 
 function Header({
   title,
@@ -11,19 +12,43 @@ function Header({
   onLogin,
   authSession,
   onSignOut,
+  onOpenMobileMenu,
+  isMobileSidebarOpen,
+  onBackToPortal,
+  portalName,
 })  {
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const loggedInRole = authSession?.role || authSession?.user?.user_metadata?.role || "User";
   const userEmail = authSession?.user?.email || "";
 
-  return (
-    <header className="top-header">
-      <div>
-        <p className="eyebrow">Agricultural Research Platform</p>
-        <h1>{title}</h1>
-        <p className="subtitle">{subtitle}</p>
-      </div>
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-      <div className="header-actions">
+  return (
+    <>
+      <header className="top-header">
+        <div className="header-title-row">
+        <button
+          type="button"
+          className="mobile-menu-trigger"
+          onClick={onOpenMobileMenu}
+          aria-label="Open navigation"
+          aria-controls="dashboard-navigation"
+          aria-expanded={isMobileSidebarOpen}
+        >
+          <Menu size={22} />
+        </button>
+        {onBackToPortal && (
+          <button type="button" className="header-portal-back" onClick={onBackToPortal}>
+            <ArrowLeft size={17} aria-hidden="true" />
+            <span>Back to {portalName}</span>
+          </button>
+        )}
+        </div>
+
+        <div className="header-actions">
         <div className="search-box">
           <Search size={16} />
           <input
@@ -44,6 +69,18 @@ function Header({
             </option>
           ))}
         </select>
+
+        <div className="header-utilities" aria-label="Dashboard utilities">
+          <span className="header-clock" title="Local time">
+            <Clock3 size={15} aria-hidden="true" />
+            <time dateTime={currentTime.toISOString()}>
+              {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </time>
+          </span>
+          <span className="notification-indicator" title="Notifications" aria-label="Notifications">
+            <Bell size={17} aria-hidden="true" />
+          </span>
+        </div>
 
         {authSession ? (
           <div className="user-profile-badge" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -74,8 +111,17 @@ function Header({
           </button>
         )}
 
-      </div>
-    </header>
+        </div>
+      </header>
+
+      <section className="dashboard-hero" aria-labelledby="dashboard-page-title">
+        <div className="dashboard-hero-copy">
+          <p className="eyebrow">Agricultural Research Platform</p>
+          <h1 id="dashboard-page-title">{title}</h1>
+          <p className="subtitle">{subtitle}</p>
+        </div>
+      </section>
+    </>
   );
 }
 

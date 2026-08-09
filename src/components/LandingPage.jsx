@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import './LandingPage.css';
 
 export default function LandingPage({ onViewDashboard }) {
   useEffect(() => {

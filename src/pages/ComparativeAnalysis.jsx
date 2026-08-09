@@ -66,11 +66,27 @@ import {
 } from "../components/PremiumCharts";
 
 /* ── Shared Premium Tooltips ──────────────────────────────────────── */
-function GenericBarTooltip({ active, payload, label }) {
+function GenericBarTooltip({ active, payload, label, treatments = [] }) {
   if (!active || !payload || !payload.length) return null;
+
+  let details = null;
+  if (label && String(label).startsWith("T") && treatments.length > 0) {
+    const found = treatments.find((t) => String(t.treatment_id).toLowerCase() === String(label).toLowerCase());
+    if (found && found.treatment_details) {
+      details = found.treatment_details;
+    }
+  }
+
   return (
     <div style={premiumTooltipStyle}>
-      <p style={premiumTooltipLabelStyle}>{label}</p>
+      <p style={premiumTooltipLabelStyle}>
+        {label}
+        {details && (
+          <span style={{ fontSize: 11, fontWeight: 500, color: "#6B8A6B", display: "block", marginTop: 2, whiteSpace: "normal" }}>
+            {details}
+          </span>
+        )}
+      </p>
       {payload.map((entry, i) => (
         <p key={i} style={{ ...premiumTooltipItemStyle, color: entry.fill || LINE_COLORS[i % LINE_COLORS.length].stroke, margin: "2px 0" }}>
           {entry.name}: {typeof entry.value === "number" ? entry.value.toFixed(1) : entry.value}
@@ -80,11 +96,27 @@ function GenericBarTooltip({ active, payload, label }) {
   );
 }
 
-function GenericLineTooltip({ active, payload, label }) {
+function GenericLineTooltip({ active, payload, label, treatments = [] }) {
   if (!active || !payload || !payload.length) return null;
+
+  let details = null;
+  if (label && String(label).startsWith("T") && treatments.length > 0) {
+    const found = treatments.find((t) => String(t.treatment_id).toLowerCase() === String(label).toLowerCase());
+    if (found && found.treatment_details) {
+      details = found.treatment_details;
+    }
+  }
+
   return (
     <div style={premiumTooltipStyle}>
-      <p style={premiumTooltipLabelStyle}>{label}</p>
+      <p style={premiumTooltipLabelStyle}>
+        {label}
+        {details && (
+          <span style={{ fontSize: 11, fontWeight: 500, color: "#6B8A6B", display: "block", marginTop: 2, whiteSpace: "normal" }}>
+            {details}
+          </span>
+        )}
+      </p>
       {payload.map((entry, i) => (
         <p key={i} style={{ ...premiumTooltipItemStyle, color: entry.stroke || LINE_COLORS[i % LINE_COLORS.length].stroke, margin: "2px 0" }}>
           {entry.name}: {typeof entry.value === "number" ? entry.value.toFixed(2) : entry.value}
@@ -878,7 +910,7 @@ function resetFilters() {
           <section className="comparison-grid">
             <LocationGrowthChart locationComparison={locationComparison} />
 
-            <TreatmentScoreChart treatmentComparison={treatmentComparison} />
+            <TreatmentScoreChart treatmentComparison={treatmentComparison} treatments={data.treatments} />
           </section>
         </>
       )}
@@ -890,7 +922,7 @@ function resetFilters() {
       {activeTab === "treatment" && (
         <>
           <section className="comparison-grid">
-            <TreatmentScoreChart treatmentComparison={treatmentComparison} />
+            <TreatmentScoreChart treatmentComparison={treatmentComparison} treatments={data.treatments} />
 
             <div className="card chart-card">
               <div className="card-header">
@@ -914,7 +946,7 @@ function resetFilters() {
                     <CartesianGrid {...premiumGridProps} />
                     <XAxis dataKey="treatment" tick={premiumAxisTick} axisLine={false} tickLine={false} />
                     <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-                    <Tooltip content={<GenericBarTooltip />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
+                    <Tooltip content={<GenericBarTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
                     <Bar
                       dataKey={metricToTreatmentKey(selectedMetric)}
                       name={selectedMetricLabel}
@@ -942,6 +974,8 @@ function resetFilters() {
         <>
           <section className="comparison-grid">
             <DayWiseBiometricChart
+              biometric={data.biometric}
+              treatments={data.treatments}
               dayWiseBiometric={dayWiseBiometric}
               selectedMetric={selectedMetric}
               selectedMetricLabel={selectedMetricLabel}
@@ -967,7 +1001,7 @@ function resetFilters() {
                     <CartesianGrid {...premiumGridProps} />
                     <XAxis dataKey="day" tick={premiumAxisTick} axisLine={false} tickLine={false} />
                     <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-                    <Tooltip content={<GenericLineTooltip />} />
+                    <Tooltip content={<GenericLineTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} />
                     <Legend wrapperStyle={premiumLegendStyle} />
                     <Line
                       type="monotone"
@@ -1010,7 +1044,7 @@ function resetFilters() {
       {activeTab === "fertigation" && (
         <>
           <section className="comparison-grid">
-            <DayWiseFertigationChart dayWiseFertigation={dayWiseFertigation} />
+            <DayWiseFertigationChart dayWiseFertigation={dayWiseFertigation} treatments={data.treatments} />
 
             <div className="card chart-card">
               <div className="card-header">
@@ -1032,7 +1066,7 @@ function resetFilters() {
                     <CartesianGrid {...premiumGridProps} />
                     <XAxis dataKey="day" tick={premiumAxisTick} axisLine={false} tickLine={false} />
                     <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-                    <Tooltip content={<GenericLineTooltip />} />
+                    <Tooltip content={<GenericLineTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} />
                     <Legend wrapperStyle={premiumLegendStyle} />
                     <Line type="monotone" dataKey="urea" name="Urea" stroke={LINE_COLORS[6].stroke} strokeWidth={3.5} strokeLinecap="round" filter="url(#lgf6)" dot={premiumDot(LINE_COLORS[6].dot)} activeDot={premiumActiveDot(LINE_COLORS[6].dot)} isAnimationActive={true} animationDuration={900} animationEasing="ease-out" />
                     <Line type="monotone" dataKey="dap" name="DAP" stroke={LINE_COLORS[4].stroke} strokeWidth={3.5} strokeLinecap="round" filter="url(#lgf4)" dot={premiumDot(LINE_COLORS[4].dot)} activeDot={premiumActiveDot(LINE_COLORS[4].dot)} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" />
@@ -1071,7 +1105,7 @@ function resetFilters() {
                     <CartesianGrid {...premiumGridProps} />
                     <XAxis dataKey="treatment" tick={premiumAxisTick} axisLine={false} tickLine={false} />
                     <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-                    <Tooltip content={<GenericBarTooltip />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
+                    <Tooltip content={<GenericBarTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
                     <Legend wrapperStyle={premiumLegendStyle} />
                     <Bar dataKey="totalNPK" name="Total NPK" shape={PremiumBar0} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
                     <Bar dataKey="avgHeight" name="Avg Height" shape={PremiumBar4} isAnimationActive={true} animationDuration={900} animationEasing="ease-out" />
@@ -1100,7 +1134,7 @@ function resetFilters() {
                     <CartesianGrid {...premiumGridProps} />
                     <XAxis dataKey="treatment" tick={premiumAxisTick} axisLine={false} tickLine={false} />
                     <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-                    <Tooltip content={<GenericBarTooltip />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
+                    <Tooltip content={<GenericBarTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
                     <Legend wrapperStyle={premiumLegendStyle} />
                     <Bar dataKey="totalN" name="N" shape={PremiumBar4} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
                     <Bar dataKey="totalP" name="P2O5" shape={PremiumBar1} isAnimationActive={true} animationDuration={900} animationEasing="ease-out" />
@@ -1153,7 +1187,7 @@ function LocationGrowthChart({ locationComparison }) {
             <CartesianGrid {...premiumGridProps} />
             <XAxis dataKey="location" tick={premiumAxisTick} axisLine={false} tickLine={false} />
             <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<GenericBarTooltip />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
+            <Tooltip content={<GenericBarTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
             <Legend wrapperStyle={premiumLegendStyle} />
             <Bar dataKey="avgHeight" name="Avg Height" shape={PremiumBar0} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
             <Bar dataKey="avgTillers" name="Avg Tillers" shape={PremiumBar3} isAnimationActive={true} animationDuration={900} animationEasing="ease-out" />
@@ -1164,7 +1198,7 @@ function LocationGrowthChart({ locationComparison }) {
   );
 }
 
-function TreatmentScoreChart({ treatmentComparison }) {
+function TreatmentScoreChart({ treatmentComparison, treatments = [] }) {
   return (
     <div className="card chart-card">
       <div className="card-header">
@@ -1186,7 +1220,7 @@ function TreatmentScoreChart({ treatmentComparison }) {
             <CartesianGrid {...premiumGridProps} />
             <XAxis dataKey="treatment" tick={premiumAxisTick} axisLine={false} tickLine={false} />
             <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<GenericBarTooltip />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
+            <Tooltip content={<GenericBarTooltip treatments={treatments} />} cursor={{ fill: "rgba(79,124,255,0.05)", rx: 8 }} />
             <Bar
               dataKey="performanceScore"
               name="Performance Score"
@@ -1233,7 +1267,7 @@ function DayWiseBiometricChart({
             <CartesianGrid {...premiumGridProps} />
             <XAxis dataKey="day" tick={premiumAxisTick} axisLine={false} tickLine={false} />
             <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<GenericLineTooltip />} />
+            <Tooltip content={<GenericLineTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} />
             <Legend wrapperStyle={premiumLegendStyle} />
             <Line
               type="monotone"
@@ -1278,7 +1312,7 @@ function DayWiseFertigationChart({ dayWiseFertigation }) {
             <CartesianGrid {...premiumGridProps} />
             <XAxis dataKey="day" tick={premiumAxisTick} axisLine={false} tickLine={false} />
             <YAxis tick={premiumAxisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<GenericLineTooltip />} />
+            <Tooltip content={<GenericLineTooltip treatments={typeof treatments !== "undefined" ? treatments : (typeof data !== "undefined" ? data.treatments : [])} />} />
             <Legend wrapperStyle={premiumLegendStyle} />
             <Line type="monotone" dataKey="n" name="N kg" stroke={LINE_COLORS[4].stroke} strokeWidth={3.5} strokeLinecap="round" filter="url(#lgf4)" dot={premiumDot(LINE_COLORS[4].dot)} activeDot={premiumActiveDot(LINE_COLORS[4].dot)} isAnimationActive={true} animationDuration={900} animationEasing="ease-out" />
             <Line type="monotone" dataKey="p" name="P2O5 kg" stroke={LINE_COLORS[1].stroke} strokeWidth={3.5} strokeLinecap="round" filter="url(#lgf1)" dot={premiumDot(LINE_COLORS[1].dot)} activeDot={premiumActiveDot(LINE_COLORS[1].dot)} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" />

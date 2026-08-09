@@ -5,8 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, Sprout, Mail, Lock, GraduationCap, ShieldCheck, Loader2, CheckCircle2, AlertCircle, MailCheck, KeyRound, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./utils/supabaseClient";
 import "./App.css";
-import "./typography.css";
-
 import LoadingScreen from "./components/LoadingScreen";
 import ErrorScreen from "./components/ErrorScreen";
 
@@ -53,6 +51,7 @@ function App() {
 
   const [submissionsList, setSubmissionsList] = useState([]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -570,10 +569,10 @@ function App() {
         activePage={activePage}
         setActivePage={setActivePage}
         onBackToLanding={() => setView("landing")}
-        onBackToPortal={authSession ? () => setView(authSession.role === "admin" ? "admin-approval" : "data-entry") : null}
-        portalName={authSession?.role === "admin" ? "Admin Page" : "Student Page"}
         isExpanded={isSidebarExpanded}
         setIsExpanded={setIsSidebarExpanded}
+        isMobileOpen={isMobileSidebarOpen}
+        closeMobile={() => setIsMobileSidebarOpen(false)}
       />
 
       <main className="main-content">
@@ -592,6 +591,10 @@ function App() {
           }}
           authSession={authSession}
           onSignOut={handleSignOut}
+          onBackToPortal={authSession ? () => setView(authSession.role === "admin" ? "admin-approval" : "data-entry") : null}
+          portalName={authSession?.role === "admin" ? "Admin Page" : "Student Page"}
+          onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+          isMobileSidebarOpen={isMobileSidebarOpen}
         />
 
         {renderPage()}

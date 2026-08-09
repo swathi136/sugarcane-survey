@@ -11,6 +11,7 @@ import {
   GitCompare,
   ChartNoAxesCombined,
   Menu,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -67,7 +68,7 @@ const menuItems = [
   },
 ];
 
-function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, onBackToPortal, portalName, isExpanded, setIsExpanded }) {
+function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, isExpanded, setIsExpanded, isMobileOpen, closeMobile }) {
   const [isHovered, setIsHovered] = useState(false);
   const hoverLeaveTimer = useRef(null);
   const showExpanded = isExpanded || isHovered;
@@ -86,18 +87,19 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
 
   return (
     <aside 
-      className={`sidebar ${showExpanded ? 'expanded' : 'collapsed'}`}
+      id="dashboard-navigation"
+      className={`sidebar ${showExpanded ? 'expanded' : 'collapsed'} ${isMobileOpen ? 'mobile-open' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: showExpanded ? '14px 12px' : '14px 0', transition: 'padding var(--sidebar-motion)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: showExpanded ? '160px' : '0px', opacity: showExpanded ? 1 : 0, transition: 'width var(--sidebar-motion), opacity 0.22s ease', whiteSpace: 'nowrap' }}>
+      <div className="brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: showExpanded ? '16px 14px' : '16px 0', transition: 'padding var(--sidebar-motion)' }}>
+        <div className="brand-copy-wrap" style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: showExpanded ? '230px' : '0px', opacity: showExpanded ? 1 : 0, transition: 'width var(--sidebar-motion), opacity 0.22s ease', whiteSpace: 'nowrap' }}>
           <div className="brand-icon">
-            <Sprout size={22} />
+            <Sprout size={24} />
           </div>
           <div>
-            <h2>Sugarcane</h2>
-            <p>Research Analytics</p>
+            <h2 style={{ fontSize: '17px', letterSpacing: '-0.4px', color: 'var(--text-primary)', margin: 0, fontWeight: 800 }}>Sugarcane</h2>
+            <p style={{ fontSize: '12px', color: 'var(--sage)', margin: '2px 0 0 0', fontWeight: 500 }}>Research Analytics</p>
           </div>
         </div>
         <button 
@@ -108,44 +110,15 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
         >
           <Menu size={24} />
         </button>
+        <button className="mobile-sidebar-close" type="button" onClick={closeMobile} aria-label="Close navigation">
+          <X size={22} />
+        </button>
       </div>
 
-      {onBackToPortal && (
-        <div style={{ 
-          padding: showExpanded ? '0 12px 12px 12px' : '0 12px 0 12px', 
-          maxHeight: showExpanded ? '60px' : '0px', 
-          opacity: showExpanded ? 1 : 0, 
-          overflow: 'hidden', 
-          transition: 'padding var(--sidebar-motion), max-height var(--sidebar-motion), opacity 0.22s ease'
-        }}>
-          <button
-            className="nav-item"
-            style={{
-              width: '100%',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              color: '#0284c7',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-            onClick={onBackToPortal}
-          >
-            ← Back to {portalName}
-          </button>
-        </div>
-      )}
-
       {onBackToLanding && (
-        <div style={{ 
-          padding: showExpanded ? '0 12px 12px 12px' : '0 12px 0 12px', 
-          maxHeight: showExpanded ? '60px' : '0px', 
+        <div className="sidebar-return-wrap" style={{
+          padding: showExpanded ? '0 14px 14px 14px' : '0 14px 0 14px',
+          maxHeight: showExpanded ? '80px' : '0px',
           opacity: showExpanded ? 1 : 0, 
           overflow: 'hidden', 
           transition: 'padding var(--sidebar-motion), max-height var(--sidebar-motion), opacity 0.22s ease'
@@ -154,20 +127,21 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
             className="nav-item"
             style={{
               width: '100%',
-              backgroundColor: 'rgba(79, 122, 74, 0.1)',
-              border: '1px solid rgba(79, 122, 74, 0.25)',
+              background: 'transparent',
+              border: 'none',
               color: '#223A24',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
-              gap: '6px',
+              justifyContent: 'flex-start',
+              gap: '8px',
               padding: '8px 12px',
-              borderRadius: '8px',
               cursor: 'pointer',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden'
             }}
-            onClick={onBackToLanding}
+            onClick={() => { onBackToLanding(); closeMobile?.(); }}
           >
             ← Back to Landing Page
           </button>
@@ -182,19 +156,22 @@ function Sidebar({ activePage, setActivePage, onBackToLanding, onOpenDataEntry, 
             <button
               key={item.id}
               className={`nav-item ${activePage === item.id ? "active" : ""}`}
+              aria-current={activePage === item.id ? "page" : undefined}
               onClick={() => {
                 if (item.id === "student-data-entry" && onOpenDataEntry) {
                   onOpenDataEntry();
                 } else {
                   setActivePage(item.id);
                 }
+                closeMobile?.();
               }}
             >
               <Icon size={18} style={{ minWidth: '18px' }} />
-              <span style={{
+              <span className="nav-label" style={{
                 overflow: 'hidden',
+                textOverflow: 'ellipsis',
                 opacity: showExpanded ? 1 : 0,
-                maxWidth: showExpanded ? '200px' : '0px',
+                maxWidth: showExpanded ? '250px' : '0px',
                 transform: showExpanded ? 'translateX(0)' : 'translateX(-10px)',
                 transition: 'max-width var(--sidebar-motion), transform var(--sidebar-motion), opacity 0.2s ease',
                 whiteSpace: 'nowrap'

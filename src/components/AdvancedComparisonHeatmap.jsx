@@ -1,72 +1,70 @@
 import { useMemo, useState } from "react";
 import {
-  HEATMAP_FERTILIZERS,
-  HEATMAP_METRICS,
-  buildBiometricHeatmap,
-  buildFertilizerHeatmap,
-  buildTreatmentHeatmap,
-  finiteHeatmapValue,
+  buildDayMetricHeatmap,
+  buildFertilizerMetricHeatmap,
 } from "../utils/advancedComparisonHeatmap";
-import "./AdvancedComparisonHeatmap.css";
 
 const MODES = [
-  { value: "biometric", label: "Biometric Performance" },
-  { value: "fertilizer", label: "Fertilizer Application" },
-  { value: "treatment", label: "Treatment Performance" },
+  { value: "fertilizer-metric", label: "Fertilizer vs Metric" },
+  { value: "day-metric", label: "Day vs Metric" },
 ];
+const LOCATION_IDS = new Set(["L001", "L002", "L003"]);
+const SCALE = ["#f3ead8", "#bdc8a3", "#8d975f", "#4f8757", "#225c3a"];
+export const EMPTY_METRIC_MESSAGE = "No valid metric data is available for the selected filters.";
 
-function AdvancedComparisonHeatmap({ data }) {
+function AdvancedComparisonHeatmap({ data, onResetAll }) {
   const biometric = useMemo(() => data.comparisonBiometric || [], [data.comparisonBiometric]);
   const fertigation = useMemo(() => data.comparisonFertigation || [], [data.comparisonFertigation]);
-  const plots = useMemo(() => data.plots || [], [data.plots]);
-  const locations = useMemo(() => data.locations || [], [data.locations]);
-  const [mode, setMode] = useState("biometric");
-  const [metricKey, setMetricKey] = useState("");
-  const [fertilizerKey, setFertilizerKey] = useState("");
+  const locations = useMemo(() => (data.locations || []).filter((item) => LOCATION_IDS.has(item.location_id)), [data.locations]);
+  const [mode, setMode] = useState("fertilizer-metric");
+  const [locationId, setLocationId] = useState("");
+  const [observationDay, setObservationDay] = useState("");
   const [startDay, setStartDay] = useState("");
   const [endDay, setEndDay] = useState("");
-  const [locationId, setLocationId] = useState("");
-  const [plotKey, setPlotKey] = useState("");
 
-  const metrics = useMemo(() => HEATMAP_METRICS.filter((metric) => biometric.some((row) => Object.hasOwn(row, metric.field))), [biometric]);
-  const fertilizers = useMemo(() => HEATMAP_FERTILIZERS.filter((fertilizer) => fertigation.some((row) => Object.hasOwn(row, fertilizer.field))), [fertigation]);
-  const metric = metrics.find((item) => item.key === metricKey) || null;
-  const fertilizer = fertilizers.find((item) => item.key === fertilizerKey) || null;
-  const sourceRows = mode === "fertilizer" ? fertigation : biometric;
-  const dayField = mode === "fertilizer" ? "day_after_planting" : "observation_day";
-  const availableDays = useMemo(() => [...new Set(sourceRows.filter((row) => !locationId || row.location_id === locationId).map((row) => finiteHeatmapValue(row[dayField])).filter((day) => day !== null))].sort((a, b) => a - b), [sourceRows, locationId, dayField]);
-  const plotOptions = useMemo(() => plots.filter((plot) => !locationId || plot.location_id === locationId).sort((a, b) => `${a.location_id}|${a.plot_id}`.localeCompare(`${b.location_id}|${b.plot_id}`, undefined, { numeric: true })), [plots, locationId]);
+  const matrix = useMemo(() => (
+    mode === "fertilizer-metric"
+      ? buildFertilizerMetricHeatmap({ biometricRows: biometric, fertigationRows: fertigation, locations, locationId, observationDay })
+      : buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId, startDay, endDay })
+  ), [mode, biometric, fertigation, locations, locationId, observationDay, startDay, endDay]);
 
-  const matrix = useMemo(() => {
-    if (mode === "fertilizer") return buildFertilizerHeatmap({ rows: fertigation, plots, locations, fertilizer, startDay, endDay, locationId, plotKey });
-    if (mode === "treatment") return buildTreatmentHeatmap({ rows: biometric, locations, metric, startDay, endDay, locationId });
-    return buildBiometricHeatmap({ rows: biometric, plots, locations, metric, startDay, endDay, locationId, plotKey });
-  }, [mode, biometric, fertigation, plots, locations, metric, fertilizer, startDay, endDay, locationId, plotKey]);
+  const validRange = mode !== "day-metric" || (startDay !== "" && endDay !== "" && Number(startDay) <= Number(endDay));
+  const selectionMissing = !locationId || (mode === "fertilizer-metric" ? observationDay === "" : startDay === "" || endDay === "");
 
-  function reset(nextMode = mode) {
-    setMode(nextMode); setMetricKey(""); setFertilizerKey(""); setStartDay(""); setEndDay(""); setLocationId(""); setPlotKey("");
+  function switchMode(nextMode) {
+    setMode(nextMode);
+    setObservationDay("");
+    setStartDay("");
+    setEndDay("");
   }
 
-  const selectionMissing = mode === "fertilizer" ? !fertilizer : !metric || (mode === "treatment" && !locationId);
+  function reset() {
+    setLocationId("");
+    setObservationDay("");
+    setStartDay("");
+    setEndDay("");
+    onResetAll?.();
+  }
 
   return <div className="heatmap-workspace">
     <section className="heatmap-controls-card">
-      <div className="heatmap-controls-grid">
-        <HeatmapSelect label="Mode" value={mode} onChange={(value) => reset(value)} options={MODES} />
-        {mode === "fertilizer"
-          ? <HeatmapSelect label="Fertilizer" value={fertilizerKey} onChange={setFertilizerKey} options={[{ value: "", label: "Select fertilizer" }, ...fertilizers.map((item) => ({ value: item.key, label: item.label }))]} />
-          : <HeatmapSelect label="Metric" value={metricKey} onChange={setMetricKey} options={[{ value: "", label: "Select metric" }, ...metrics.map((item) => ({ value: item.key, label: item.label }))]} />}
-        <HeatmapSelect label={mode === "fertilizer" ? "Start Day" : "Start Observation Day"} value={startDay} onChange={setStartDay} options={[{ value: "", label: "All available" }, ...availableDays.map((day) => ({ value: String(day), label: `Day ${day}` }))]} />
-        <HeatmapSelect label={mode === "fertilizer" ? "End Day" : "End Observation Day"} value={endDay} onChange={setEndDay} options={[{ value: "", label: "All available" }, ...availableDays.map((day) => ({ value: String(day), label: `Day ${day}` }))]} />
-        <HeatmapSelect label="Location" value={locationId} onChange={(value) => { setLocationId(value); setPlotKey(""); }} options={[{ value: "", label: mode === "treatment" ? "Select location" : "All locations" }, ...locations.map((item) => ({ value: item.location_id, label: item.location_short_name || item.location_name || item.location_id }))]} />
-        {mode !== "treatment" && <HeatmapSelect label="Plot (optional)" value={plotKey} onChange={setPlotKey} options={[{ value: "", label: "All plots" }, ...plotOptions.map((plot) => ({ value: `${plot.location_id}|${plot.plot_id}`, label: `${plot.location_id} — ${plot.plot_name || plot.plot_label || plot.plot_id}` }))]} />}
+      <div className="heatmap-tabs" role="tablist" aria-label="Heatmap type">
+        {MODES.map((item) => <button key={item.value} type="button" role="tab" aria-selected={mode === item.value} className={`heatmap-tab${mode === item.value ? " active" : ""}`} onClick={() => switchMode(item.value)}>{item.label}</button>)}
       </div>
-      <button type="button" className="heatmap-reset" onClick={() => reset()}>Reset</button>
+      <div className="heatmap-controls-grid">
+        <HeatmapSelect label="Location" value={locationId} onChange={setLocationId} options={[{ value: "", label: "Select location" }, ...locations.map((item) => ({ value: item.location_id, label: item.location_short_name || item.location_name || item.location_id }))]} />
+        {mode === "fertilizer-metric"
+          ? <HeatmapNumber label="Observation Day" value={observationDay} onChange={setObservationDay} placeholder="90" />
+          : <><HeatmapNumber label="Start Day" value={startDay} onChange={setStartDay} placeholder="30" /><HeatmapNumber label="End Day" value={endDay} onChange={setEndDay} placeholder="150" /></>}
+      </div>
+      <button type="button" className="heatmap-reset" onClick={reset}>Reset</button>
     </section>
 
-    {selectionMissing ? <HeatmapEmpty text="Select a metric or fertilizer to view the heatmap." />
-      : !matrix.rows.length || !matrix.days.length || !matrix.values.length ? <HeatmapEmpty text="No valid Supabase data is available for this selection." />
-        : <HeatmapMatrix matrix={matrix} mode={mode} metric={metric} fertilizer={fertilizer} />}
+    {selectionMissing ? <HeatmapEmpty text={mode === "fertilizer-metric" ? "Select a location and enter an observation day to view the heatmap." : "Select a location and enter a start and end day to view the heatmap."} />
+      : !validRange ? <HeatmapEmpty text="Start day must be less than or equal to end day." />
+        : !matrix.rows.length ? <HeatmapEmpty text="No valid Supabase data is available for this selection." />
+          : !matrix.columns.length ? <HeatmapEmpty text={EMPTY_METRIC_MESSAGE} />
+          : <HeatmapMatrix matrix={matrix} mode={mode} />}
   </div>;
 }
 
@@ -74,40 +72,54 @@ function HeatmapSelect({ label, value, onChange, options }) {
   return <label className="heatmap-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={`${option.value}-${option.label}`} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
+function HeatmapNumber({ label, value, onChange, placeholder }) {
+  return <label className="heatmap-field"><span>{label}</span><input type="number" min="0" step="1" inputMode="numeric" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
 function HeatmapEmpty({ text }) { return <section className="heatmap-card heatmap-empty">{text}</section>; }
 
-function HeatmapMatrix({ matrix, mode, metric, fertilizer }) {
-  const minimum = Math.min(...matrix.values);
-  const maximum = Math.max(...matrix.values);
+function HeatmapMatrix({ matrix, mode }) {
+  const isRelationship = mode === "fertilizer-metric";
   return <section className="heatmap-card">
-    <div className="heatmap-card-header"><div><h3>{mode === "fertilizer" ? `${fertilizer.label} Application` : `${metric.label} Performance`}</h3><p>Values use the same confirmed summary semantics as Advanced Comparison. Missing records remain empty.</p></div><div className="heatmap-legend" aria-label="Heatmap intensity from low to high"><span>Low</span><i className="legend-low" /><i className="legend-medium" /><i className="legend-high" /><span>High</span></div></div>
-    <div className="heatmap-scroll"><div className="heatmap-matrix" style={{ gridTemplateColumns: `minmax(190px, 240px) repeat(${matrix.days.length}, minmax(64px, 1fr))` }}>
-      <div className="heatmap-corner">{mode === "treatment" ? "Treatment" : "Location — Plot"}</div>
-      {matrix.days.map((day) => <div className="heatmap-column-header" key={day}>{day}</div>)}
-      {matrix.rows.map((row) => <HeatmapRow key={row.key} row={row} days={matrix.days} mode={mode} metric={metric} fertilizer={fertilizer} minimum={minimum} maximum={maximum} />)}
+    <div className="heatmap-card-header"><div><h3>{isRelationship ? "Fertilizer vs Metric" : "Day vs Metric"}</h3><p>{isRelationship ? `Fertilizer-to-biometric relationships for ${matrix.locationName} on observation day ${matrix.day}.` : `Biometric progression for ${matrix.locationName} from day ${matrix.startDay} to day ${matrix.endDay}.`} Missing values remain empty.</p></div><HeatmapLegend /></div>
+    <div className="heatmap-scroll"><div className="heatmap-matrix" style={{ gridTemplateColumns: `minmax(150px, 210px) repeat(${matrix.columns.length}, minmax(86px, 1fr))` }}>
+      <div className="heatmap-corner">{isRelationship ? "Fertilizer" : "Day"}</div>
+      {matrix.columns.map((metric) => <div className="heatmap-column-header" key={metric.key}>{metric.label}</div>)}
+      {matrix.rows.map((row) => <HeatmapRow key={row.key} row={row} matrix={matrix} relationship={isRelationship} />)}
     </div></div>
   </section>;
 }
 
-function HeatmapRow({ row, days, mode, metric, fertilizer, minimum, maximum }) {
-  return <><div className="heatmap-row-label"><strong>{mode === "treatment" ? row.treatment : `${row.locationName} — ${row.plotLabel}`}</strong><small>{mode === "treatment" ? row.locationName : row.treatment}</small></div>{days.map((day) => <HeatmapCell key={day} summary={row.cells[day]} row={row} day={day} mode={mode} metric={metric} fertilizer={fertilizer} minimum={minimum} maximum={maximum} />)}</>;
+function HeatmapLegend() {
+  return <div className="heatmap-legend" aria-label="Heatmap scale from very low to very high"><span>Very Low</span>{SCALE.map((color) => <i key={color} style={{ background: color }} />)}<span>Very High</span></div>;
 }
 
-function HeatmapCell({ summary, row, day, mode, metric, fertilizer, minimum, maximum }) {
+function HeatmapRow({ row, matrix, relationship }) {
+  return <><div className="heatmap-row-label"><strong>{relationship ? row.label : `Day ${row.day}`}</strong></div>{matrix.columns.map((metric) => <HeatmapCell key={metric.key} summary={row.cells[metric.key]} row={row} metric={metric} matrix={matrix} relationship={relationship} />)}</>;
+}
+
+function HeatmapCell({ summary, row, metric, matrix, relationship }) {
   const [open, setOpen] = useState(false);
-  const ratio = summary && maximum > minimum ? (summary.value - minimum) / (maximum - minimum) : summary ? 0.55 : null;
-  const background = ratio === null ? "#eef1ec" : interpolateSage(ratio);
-  const dark = ratio !== null && ratio >= 0.65;
-  const detail = mode === "fertilizer"
-    ? `${row.locationName}; ${row.plotLabel}; ${row.treatment}; Application Day ${day}; ${fertilizer.label}; ${summary?.value ?? "Missing"} ${fertilizer.unit}`
-    : `${row.locationName}; ${mode === "treatment" ? row.treatment : `${row.plotLabel}; ${row.treatment}`}; Observation Day ${day}; ${metric.label}; ${summary?.value ?? "Missing"}${metric.unit ? ` ${metric.unit}` : ""}${summary ? `; ${summary.count} record${summary.count === 1 ? "" : "s"}` : ""}`;
-  return <div className="heatmap-cell-wrap"><button type="button" className={`heatmap-cell ${summary ? "has-value" : "missing"}${dark ? " dark" : ""}`} style={{ background }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} aria-label={detail}>{summary?.value ?? "—"}</button>{open && <div className="heatmap-tooltip" role="tooltip"><strong>{row.locationName}{mode !== "treatment" ? ` — ${row.plotLabel}` : ""}</strong><span>Treatment: {row.treatment}</span><span>{mode === "fertilizer" ? "Application" : "Observation"} Day: {day}</span><span>{mode === "fertilizer" ? fertilizer.label : metric.label}: {summary ? `${summary.value}${(fertilizer || metric).unit ? ` ${(fertilizer || metric).unit}` : ""}` : "Missing"}</span>{summary && mode !== "fertilizer" && <span>Valid records: {summary.count}</span>}</div>}</div>;
+  const intensity = relationship ? relationshipIntensity(summary?.value) : metricIntensity(summary?.value, matrix.values[metric.key]);
+  const background = intensity === null ? "transparent" : SCALE[intensity];
+  const valueLabel = summary ? summary.value : "Missing";
+  const detail = relationship
+    ? `${matrix.locationName}; Observation day ${matrix.day}; ${row.label}; ${metric.label}; Relationship ${valueLabel}`
+    : `${matrix.locationName}; Day ${row.day}; ${metric.label}; ${valueLabel}${summary && metric.unit ? ` ${metric.unit}` : ""}`;
+  return <div className="heatmap-cell-wrap"><button type="button" className={`heatmap-cell${summary ? " has-value" : " missing"}`} style={{ background }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} aria-label={detail} />{open && <div className="heatmap-tooltip" role="tooltip"><strong>{matrix.locationName}</strong>{relationship ? <><span>Observation day: {matrix.day}</span><span>Fertilizer: {row.label}</span><span>Metric: {metric.label}</span><span>Relationship value: {valueLabel}</span></> : <><span>Day: {row.day}</span><span>Metric: {metric.label}</span><span>Value: {summary ? `${summary.value}${metric.unit ? ` ${metric.unit}` : ""}` : "Missing"}</span></>}</div>}</div>;
 }
 
-function interpolateSage(ratio) {
-  const low = [226, 238, 226], high = [55, 105, 72];
-  const channel = (index) => Math.round(low[index] + (high[index] - low[index]) * Math.max(0, Math.min(1, ratio)));
-  return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+function relationshipIntensity(value) {
+  if (value === null || value === undefined) return null;
+  return Math.min(4, Math.floor(((Math.max(-1, Math.min(1, value)) + 1) / 2) * 5));
+}
+
+function metricIntensity(value, values = []) {
+  if (value === null || value === undefined || !values.length) return null;
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  if (maximum === minimum) return 2;
+  return Math.min(4, Math.floor(((value - minimum) / (maximum - minimum)) * 5));
 }
 
 export default AdvancedComparisonHeatmap;

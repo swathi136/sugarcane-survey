@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
  * Falls back to "emerald" if variant not provided. `danger` prop maps to "red".
  * Plays a smooth pop animation on the value whenever it changes.
  */
-function KpiCard({ icon, title, value, note, danger, variant, imageSrc }) {
+function KpiCard({ title, value, note, danger, variant }) {
   const colorClass = danger
     ? "kpi-red"
     : `kpi-${variant || "emerald"}`;
@@ -25,30 +25,8 @@ function KpiCard({ icon, title, value, note, danger, variant, imageSrc }) {
     }
   }, [value]);
 
-  const hasImgClass = imageSrc ? " kpi-has-image" : "";
-
   return (
-    <div className={`kpi-card ${colorClass}${hasImgClass}${updated ? " kpi-updated" : ""}`}>
-
-      {/* ── Full-card background image ── */}
-      {imageSrc && (
-        <div
-          className="kpi-bg-image"
-          style={{ backgroundImage: `url(${imageSrc})` }}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* ── Frosted glass overlay — keeps text legible ── */}
-      {imageSrc && (
-        <div className="kpi-bg-overlay" aria-hidden="true" />
-      )}
-
-      {/* ── Animated green glow ring border ── */}
-      <div className="kpi-glow-ring" aria-hidden="true" />
-
-      {/* ── Card content ── */}
-      <div className="kpi-icon">{icon}</div>
+    <div className={`kpi-card ${colorClass}${updated ? " kpi-updated" : ""}`}>
       <div className="kpi-text">
         <p>{title}</p>
         <h2>{value}</h2>

@@ -1,10 +1,10 @@
 import EmptyState from "../components/EmptyState";
-import kpiMapImg from "../assets/images/kpi_map.png";
-import kpiSugarcaneImg from "../assets/images/kpi_sugarcane.png";
-import kpiFertilizerImg from "../assets/images/kpi_fertilizer.png";
-import kpiPlantHeightImg from "../assets/images/kpi_plant_height.png";
-import kpiAlertImg from "../assets/images/kpi_alert.png";
 import MethodologyNote from "../components/MethodologyNote";
+import kpiMapImg from "../assets/images/overview_total_locations_map.jpg";
+import kpiSugarcaneImg from "../assets/images/user_plots_pinned.jpg";
+import kpiFertilizerImg from "../assets/images/user_potassium_powder.png";
+import kpiPlantHeightImg from "../assets/images/user_measuring_tape_plant_height.png";
+import kpiAlertImg from "../assets/images/kpi_sa_high_real.jpg";
 import { useMemo } from "react";
 import {
   BarChart,

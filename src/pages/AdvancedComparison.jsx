@@ -5,6 +5,12 @@ import {
 } from "recharts";
 import { BarChart3, GitCompare, Grid3X3, X } from "lucide-react";
 import { getLocationName } from "../utils/formatters";
+import {
+  getActiveComparisonPairs,
+  getComparisonPlotOptions,
+  getDerivedTreatment,
+  isDuplicateComparisonPair,
+} from "../utils/advancedComparisonSelection";
 import AdvancedComparisonHeatmap from "../components/AdvancedComparisonHeatmap";
 
 const METRICS = [
@@ -80,6 +86,7 @@ function AdvancedComparison({ data }) {
   const [pairA, setPairA] = useState(EMPTY_PAIR);
   const [pairB, setPairB] = useState(EMPTY_PAIR);
   const [pairC, setPairC] = useState(EMPTY_PAIR);
+  const [thirdEnabled, setThirdEnabled] = useState(false);
   const [metricKey, setMetricKey] = useState("");
   const [bioDay, setBioDay] = useState("");
   const [fertilizerKey, setFertilizerKey] = useState("");
@@ -92,7 +99,7 @@ function AdvancedComparison({ data }) {
   const locationOptions = useMemo(() => locations.filter((row) => row.location_id).sort((a, b) => natural(a.location_id, b.location_id)), [locations]);
   const availableMetrics = useMemo(() => METRICS.filter((metric) => biometric.some((row) => Object.hasOwn(row, metric.field))), [biometric]);
   const availableFertilizers = useMemo(() => FERTILIZERS.filter((item) => fertigation.some((row) => Object.hasOwn(row, item.field))), [fertigation]);
-  const comparisonPairs = useMemo(() => [pairA, pairB, pairC], [pairA, pairB, pairC]);
+  const comparisonPairs = useMemo(() => getActiveComparisonPairs(pairA, pairB, pairC, thirdEnabled), [pairA, pairB, pairC, thirdEnabled]);
   const complete = comparisonPairs.every((pair) => Boolean(keyOf(pair)));
 
   const commonDays = useMemo(() => {
@@ -127,19 +134,19 @@ function AdvancedComparison({ data }) {
 
   const bioChart = useMemo(() => {
     const metric = availableMetrics.find((item) => item.key === metricKey);
-    if (selectedPairs.length !== 3 || !metric || bioDay === "") return null;
+    if (selectedPairs.length !== comparisonPairs.length || !metric || bioDay === "") return null;
     const rows = selectedPairs.map((pair) => {
       const summary = mean(metricValues(biometric, pair, bioDay, metric.field), metric.decimals);
       return summary ? { ...pair, ...summary, name: `${pair.locationName} — ${pair.plotLabel}`, day: Number(bioDay) } : null;
     }).filter(Boolean);
-    return rows.length === 3 ? { rows, metric, day: Number(bioDay) } : { rows, metric, day: Number(bioDay), incomplete: true };
-  }, [availableMetrics, metricKey, selectedPairs, bioDay, biometric]);
+    return rows.length === comparisonPairs.length ? { rows, metric, day: Number(bioDay) } : { rows, metric, day: Number(bioDay), incomplete: true };
+  }, [availableMetrics, metricKey, selectedPairs, comparisonPairs.length, bioDay, biometric]);
 
   const responseChart = useMemo(() => {
     const metric = availableMetrics.find((item) => item.key === metricKey);
     const fertilizer = availableFertilizers.find((item) => item.key === fertilizerKey);
     const start = Number(startDay), end = Number(endDay);
-    if (selectedPairs.length !== 3 || !metric || !fertilizer || startDay === "" || endDay === "" || start > end) return null;
+    if (selectedPairs.length !== comparisonPairs.length || !metric || !fertilizer || startDay === "" || endDay === "" || start > end) return null;
     const rows = responseDays.filter((day) => day >= start && day <= end).map((day) => ({ day, dayLabel: `${day} Day` }));
     selectedPairs.forEach((pair) => {
       const pairKey = keyOf(pair);
@@ -157,17 +164,11 @@ function AdvancedComparison({ data }) {
       });
     });
     return rows.some((row) => selectedPairs.some((pair) => row[keyOf(pair)] !== undefined)) ? { rows, pairs: selectedPairs, metric, fertilizer, start, end } : null;
-  }, [availableMetrics, availableFertilizers, metricKey, fertilizerKey, startDay, endDay, selectedPairs, responseDays, biometric, fertigation]);
+  }, [availableMetrics, availableFertilizers, metricKey, fertilizerKey, startDay, endDay, selectedPairs, comparisonPairs.length, responseDays, biometric, fertigation]);
 
   function updateLocation(which, locationId) {
     setSelectionMessage(""); setDetails(null);
-    const index = which === "A" ? 0 : which === "B" ? 1 : 2;
     const setter = which === "A" ? setPairA : which === "B" ? setPairB : setPairC;
-    if (locationId && comparisonPairs.some((pair, pairIndex) => pairIndex !== index && pair.locationId === locationId)) {
-      setSelectionMessage("Comparison 1, Comparison 2 and Comparison 3 must use different locations.");
-      setter(EMPTY_PAIR);
-      return;
-    }
     setter({ locationId, plotId: "" });
   }
   function updatePlot(which, plotId) {
@@ -176,8 +177,8 @@ function AdvancedComparison({ data }) {
     const current = comparisonPairs[index];
     const next = { ...current, plotId };
     const setter = which === "A" ? setPairA : which === "B" ? setPairB : setPairC;
-    if (plotId && comparisonPairs.some((pair, pairIndex) => pairIndex !== index && keyOf(next) === keyOf(pair))) {
-      setSelectionMessage("All three comparisons must use different location–plot pairs.");
+    if (isDuplicateComparisonPair(comparisonPairs, index, next)) {
+      setSelectionMessage("Each comparison must use a different location–plot pair.");
       setter({ ...current, plotId: "" });
       return;
     }
@@ -185,11 +186,19 @@ function AdvancedComparison({ data }) {
   }
   function reset() {
     setPairA(EMPTY_PAIR); setPairB(EMPTY_PAIR); setPairC(EMPTY_PAIR); setMetricKey(""); setBioDay("");
-    setFertilizerKey(""); setStartDay(""); setEndDay(""); setDetails(null); setSelectionMessage("");
+    setThirdEnabled(false); setFertilizerKey(""); setStartDay(""); setEndDay(""); setDetails(null); setSelectionMessage("");
+  }
+
+  function enableThirdComparison() {
+    setThirdEnabled(true); setSelectionMessage(""); setDetails(null);
+  }
+
+  function removeThirdComparison() {
+    setThirdEnabled(false); setPairC(EMPTY_PAIR); setSelectionMessage(""); setDetails(null);
   }
 
   const emptyText = !complete
-    ? "Select three location–plot pairs to begin the comparison."
+    ? `Select ${thirdEnabled ? "three" : "two"} location–plot pairs to begin the comparison.`
     : !commonDays.length
       ? "No common observation day is available for the selected plots."
       : !metricKey || (tab === "biometric" && bioDay === "")
@@ -197,26 +206,27 @@ function AdvancedComparison({ data }) {
         : "No valid Supabase biometric values are available for this selection.";
 
   return <div>
-    <section className="page-toolbar"><div><h2>Advanced Comparison</h2><p>Compare genuine biometric measurements and fertilizer response across all three locations in parallel.</p></div></section>
-    <div style={styles.tabs} role="tablist">
-      <button type="button" style={{ ...styles.tab, ...(tab === "biometric" ? styles.activeTab : {}) }} onClick={() => { setTab("biometric"); setDetails(null); }}><BarChart3 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Biometric Comparison</button>
-      <button type="button" style={{ ...styles.tab, ...(tab === "response" ? styles.activeTab : {}) }} onClick={() => { setTab("response"); setDetails(null); }}><GitCompare size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Fertilizer Response Comparison</button>
-      <button type="button" style={{ ...styles.tab, ...(tab === "heatmap" ? styles.activeTab : {}) }} onClick={() => { setTab("heatmap"); setDetails(null); }}><Grid3X3 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Heatmap Analysis</button>
+    <section className="page-toolbar"><div><h2>Advanced Comparison</h2><p>Compare genuine biometric measurements and fertilizer response across two or three location–plot pairs.</p></div></section>
+    <div className="advanced-tabs" style={styles.tabs} role="tablist">
+      <button type="button" className={tab === "biometric" ? "active" : ""} style={{ ...styles.tab, ...(tab === "biometric" ? styles.activeTab : {}) }} onClick={() => { setTab("biometric"); setDetails(null); }}><BarChart3 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Biometric Comparison</button>
+      <button type="button" className={tab === "response" ? "active" : ""} style={{ ...styles.tab, ...(tab === "response" ? styles.activeTab : {}) }} onClick={() => { setTab("response"); setDetails(null); }}><GitCompare size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Fertilizer Response Comparison</button>
+      <button type="button" className={tab === "heatmap" ? "active" : ""} style={{ ...styles.tab, ...(tab === "heatmap" ? styles.activeTab : {}) }} onClick={() => { setTab("heatmap"); setDetails(null); }}><Grid3X3 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />Heatmap Analysis</button>
     </div>
 
-    {tab !== "heatmap" && <section style={styles.card}>
+    {tab !== "heatmap" && <section className="advanced-surface" style={styles.card}>
       <div style={styles.comparisonGrid}>
         <ComparisonCard title="Comparison 1" pair={pairA} plots={plots} locations={locationOptions} plotMap={plotMap} onLocation={(value) => updateLocation("A", value)} onPlot={(value) => updatePlot("A", value)} />
         <ComparisonCard title="Comparison 2" pair={pairB} plots={plots} locations={locationOptions} plotMap={plotMap} onLocation={(value) => updateLocation("B", value)} onPlot={(value) => updatePlot("B", value)} />
-        <ComparisonCard title="Comparison 3" pair={pairC} plots={plots} locations={locationOptions} plotMap={plotMap} onLocation={(value) => updateLocation("C", value)} onPlot={(value) => updatePlot("C", value)} />
+        {thirdEnabled && <ComparisonCard title="Comparison 3" pair={pairC} plots={plots} locations={locationOptions} plotMap={plotMap} onLocation={(value) => updateLocation("C", value)} onPlot={(value) => updatePlot("C", value)} />}
       </div>
+      <button type="button" style={{ ...styles.button, marginTop: 16 }} onClick={thirdEnabled ? removeThirdComparison : enableThirdComparison}>{thirdEnabled ? "Remove third comparison" : "+ Add third comparison"}</button>
       {selectionMessage && <p style={{ color: "#b45309", marginBottom: 0 }}>{selectionMessage}</p>}
     </section>}
 
     {tab === "biometric" ? <>
       <section style={styles.card}><div style={styles.controlGrid}>
         <Select label="Metric" value={metricKey} onChange={setMetricKey} options={[{ value: "", label: "Select metric" }, ...availableMetrics.map((item) => ({ value: item.key, label: item.label }))]} />
-        <Select label="Observation Day" value={bioDay} onChange={setBioDay} disabled={!complete || !commonDays.length} options={[{ value: "", label: !complete ? "Select all three plots first" : commonDays.length ? "Select common day" : "No common observation day" }, ...commonDays.map((day) => ({ value: String(day), label: `Day ${day}` }))]} />
+        <Select label="Observation Day" value={bioDay} onChange={setBioDay} disabled={!complete || !commonDays.length} options={[{ value: "", label: !complete ? `Select all ${thirdEnabled ? "three" : "two"} plots first` : commonDays.length ? "Select common day" : "No common observation day" }, ...commonDays.map((day) => ({ value: String(day), label: `Day ${day}` }))]} />
       </div></section>
       <Reset reset={reset} />
       {bioChart && !bioChart.incomplete ? <BiometricChart graph={bioChart} onDetails={setDetails} /> : <Empty text={bioChart?.incomplete ? "No valid Supabase biometric values are available for this selection." : emptyText} />}
@@ -229,20 +239,20 @@ function AdvancedComparison({ data }) {
         <Select label="End Observation Day" value={endDay} onChange={setEndDay} disabled={!complete} options={[{ value: "", label: "Select end day" }, ...responseDays.map((day) => ({ value: String(day), label: `Day ${day}` }))]} />
       </div></section>
       <Reset reset={reset} />
-      {responseChart ? <ResponseChart graph={responseChart} /> : <Empty text={!complete ? "Select three location–plot pairs to begin the comparison." : "Select the metric, fertilizer and observation-day range to view the comparison."} />}
-    </> : <AdvancedComparisonHeatmap data={data} />}
+      {responseChart ? <ResponseChart graph={responseChart} /> : <Empty text={!complete ? `Select ${thirdEnabled ? "three" : "two"} location–plot pairs to begin the comparison.` : "Select the metric, fertilizer and observation-day range to view the comparison."} />}
+    </> : <AdvancedComparisonHeatmap data={data} onResetAll={reset} />}
   </div>;
 }
 
 function ComparisonCard({ title, pair, plots, locations, plotMap, onLocation, onPlot }) {
-  const options = plots.filter((plot) => plot.location_id === pair.locationId).sort((a, b) => natural(a.plot_name || a.plot_id, b.plot_name || b.plot_id));
-  const mapping = plotMap.get(keyOf(pair));
-  return <div style={{ padding: 18, border: "1px solid rgba(16,185,129,.18)", borderRadius: 16, background: "var(--forest-light)" }}>
+  const options = getComparisonPlotOptions(plots, pair.locationId);
+  const treatment = getDerivedTreatment(plotMap, pair);
+  return <div className="advanced-selector-card" style={{ padding: 18, border: "1px solid rgba(16,185,129,.18)", borderRadius: 16, background: "var(--forest-light)" }}>
     <h3 style={{ margin: "0 0 15px" }}>{title}</h3>
     <div style={{ display: "grid", gap: 14 }}>
       <Select label="Location" value={pair.locationId} onChange={onLocation} options={[{ value: "", label: "Select location" }, ...locations.map((row) => ({ value: row.location_id, label: getLocationName(row.location_id, locations) }))]} />
       <Select label="Plot" value={pair.plotId} onChange={onPlot} disabled={!pair.locationId} options={[{ value: "", label: pair.locationId ? "Select plot" : "Select location first" }, ...options.map((plot) => ({ value: plot.plot_id, label: plot.plot_name || plot.plot_label || plot.plot_id }))]} />
-      <div style={styles.field}><span style={styles.label}>Derived Treatment</span><div style={styles.treatment}>{mapping?.treatment_id || "Select a mapped plot"}</div></div>
+      <div style={styles.field}><span style={styles.label}>Derived Treatment</span><div style={styles.treatment}>{treatment || "Select a mapped plot"}</div></div>
     </div>
   </div>;
 }

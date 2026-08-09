@@ -2,86 +2,128 @@ import { describe, expect, it } from "vitest";
 import {
   HEATMAP_FERTILIZERS,
   HEATMAP_METRICS,
-  buildBiometricHeatmap,
-  buildFertilizerHeatmap,
-  buildTreatmentHeatmap,
+  buildDayMetricHeatmap,
+  buildFertilizerMetricHeatmap,
+  hasValidHeatmapCell,
+  removeEmptyHeatmapColumns,
 } from "./advancedComparisonHeatmap";
+import { EMPTY_METRIC_MESSAGE } from "../components/AdvancedComparisonHeatmap";
 
 const locations = [
   { location_id: "L001", location_name: "College" },
   { location_id: "L002", location_name: "Athani" },
 ];
-const plots = [
-  { location_id: "L001", plot_id: "P1", plot_name: "R1T1", treatment_id: "T1" },
-  { location_id: "L002", plot_id: "P1", plot_name: "Plot A", treatment_id: "T2" },
-];
-const height = HEATMAP_METRICS.find((metric) => metric.field === "plant_height_cm");
-const tillers = HEATMAP_METRICS.find((metric) => metric.field === "number_of_tillers");
-const nitrogen = HEATMAP_FERTILIZERS.find((item) => item.field === "n_kg");
-const urea = HEATMAP_FERTILIZERS.find((item) => item.field === "urea_kg");
 
 const biometric = [
-  { location_id: "L001", plot_id: "P1", treatment_id: "T1", observation_day: 30, plant_height_cm: 0, number_of_tillers: 4 },
-  { location_id: "L001", plot_id: "P1", treatment_id: "T1", observation_day: 30, plant_height_cm: 10, number_of_tillers: 6 },
-  { location_id: "L001", plot_id: "P1", treatment_id: "T1", observation_day: 60, plant_height_cm: null, number_of_tillers: 8 },
-  { location_id: "L002", plot_id: "P1", treatment_id: "T2", observation_day: 60, plant_height_cm: 20, number_of_tillers: 10 },
+  { location_id: "L001", plot_id: "P1", observation_day: 30, plant_height_cm: 0, number_of_tillers: 2, number_of_nodes: null },
+  { location_id: "L001", plot_id: "P1", observation_day: 60, plant_height_cm: 10, number_of_tillers: 4, number_of_nodes: 3 },
+  { location_id: "L001", plot_id: "P1", observation_day: 60, plant_height_cm: 20, number_of_tillers: 6, number_of_nodes: 5 },
+  { location_id: "L001", plot_id: "P2", observation_day: 60, plant_height_cm: 30, number_of_tillers: 8, number_of_nodes: null },
+  { location_id: "L001", plot_id: "P3", observation_day: 60, plant_height_cm: 45, number_of_tillers: 10, number_of_nodes: 9 },
+  { location_id: "L001", plot_id: "P1", observation_day: 90, plant_height_cm: null, number_of_tillers: 12, number_of_nodes: 11 },
+  { location_id: "L002", plot_id: "P4", observation_day: 60, plant_height_cm: 100, number_of_tillers: 20, number_of_nodes: 15 },
+];
+
+const fertigation = [
+  { location_id: "L001", plot_id: "P1", day_after_planting: 20, n_kg: 1, urea_kg: 3 },
+  { location_id: "L001", plot_id: "P1", day_after_planting: 60, n_kg: 1, urea_kg: 2 },
+  { location_id: "L001", plot_id: "P2", day_after_planting: 20, n_kg: 3, urea_kg: 3 },
+  { location_id: "L001", plot_id: "P2", day_after_planting: 70, n_kg: 100, urea_kg: 100 },
+  { location_id: "L001", plot_id: "P3", day_after_planting: 20, n_kg: 4, urea_kg: 1 },
+  { location_id: "L002", plot_id: "P4", day_after_planting: 20, n_kg: 9, urea_kg: 9 },
 ];
 
 describe("advanced comparison heatmap calculations", () => {
-  it("creates location-plot rows without collisions and observation-day columns", () => {
-    const matrix = buildBiometricHeatmap({ rows: biometric, plots, locations, metric: height });
-    expect(matrix.rows.map((row) => row.key)).toEqual(["L001|P1", "L002|P1"]);
-    expect(matrix.days).toEqual([30, 60]);
-    expect(matrix.rows[0].plotLabel).toBe("R1T1");
-    expect(matrix.rows[1].plotLabel).toBe("Plot A");
+  it("exposes exactly the requested metric and fertilizer axes", () => {
+    expect(HEATMAP_METRICS.map((item) => item.label)).toEqual([
+      "Plant Height", "Tiller Count", "Leaf Count", "Leaf Length", "Leaf Breadth",
+      "Node Count", "Node Length", "Millable Cane Count",
+    ]);
+    expect(HEATMAP_FERTILIZERS.map((item) => item.label)).toEqual([
+      "N", "P₂O₅", "K₂O", "Urea", "DAP", "MAP", "SSP", "MOP", "White Potash",
+    ]);
   });
 
-  it("uses the arithmetic mean, keeps genuine zero valid, and leaves missing values empty", () => {
-    const matrix = buildBiometricHeatmap({ rows: biometric, plots, locations, metric: height });
-    expect(matrix.rows[0].cells[30]).toEqual({ value: 5, count: 2 });
-    expect(matrix.rows[0].cells[60]).toBeNull();
-    const zeroOnly = buildBiometricHeatmap({ rows: [biometric[0]], plots, locations, metric: height });
-    expect(zeroOnly.rows[0].cells[30]).toEqual({ value: 0, count: 1 });
+  it("calculates fertilizer-to-metric relationships across plots using cumulative fertilizer up to the selected day", () => {
+    const matrix = buildFertilizerMetricHeatmap({ biometricRows: biometric, fertigationRows: fertigation, locations, locationId: "L001", observationDay: "60" });
+    const nitrogen = matrix.rows.find((row) => row.key === "n");
+    const urea = matrix.rows.find((row) => row.key === "urea");
+    expect(matrix.locationName).toBe("College");
+    expect(matrix.day).toBe(60);
+    expect(nitrogen.cells.plant_height).toEqual({ value: 1, count: 3 });
+    expect(urea.cells.plant_height).toEqual({ value: -1, count: 3 });
   });
 
-  it("updates cell values when the metric changes", () => {
-    const matrix = buildBiometricHeatmap({ rows: biometric, plots, locations, metric: tillers });
-    expect(matrix.rows[0].cells[30]).toEqual({ value: 5, count: 2 });
-    expect(matrix.rows[0].cells[60]).toEqual({ value: 8, count: 1 });
+  it("does not use fertilizer applications after the selected day", () => {
+    const matrix = buildFertilizerMetricHeatmap({ biometricRows: biometric, fertigationRows: fertigation, locations, locationId: "L001", observationDay: 60 });
+    expect(matrix.rows.find((row) => row.key === "n").cells.plant_height.value).toBe(1);
   });
 
-  it("updates columns when the day range changes", () => {
-    const matrix = buildBiometricHeatmap({ rows: biometric, plots, locations, metric: height, startDay: "60", endDay: "60" });
-    expect(matrix.days).toEqual([60]);
+  it("keeps unsupported or insufficient fertilizer relationships null", () => {
+    const matrix = buildFertilizerMetricHeatmap({ biometricRows: biometric, fertigationRows: fertigation, locations, locationId: "L001", observationDay: 60 });
+    expect(matrix.rows.find((row) => row.key === "ssp").cells.plant_height).toBeNull();
+    expect(matrix.rows.find((row) => row.key === "n").cells.leaves).toBeNull();
   });
 
-  it("sums fertilizer applied on each day and updates when fertilizer changes", () => {
-    const rows = [
-      { location_id: "L001", plot_id: "P1", day_after_planting: 20, n_kg: 2, urea_kg: 5 },
-      { location_id: "L001", plot_id: "P1", day_after_planting: 20, n_kg: 3, urea_kg: null },
-      { location_id: "L001", plot_id: "P1", day_after_planting: 40, n_kg: null, urea_kg: 7 },
-    ];
-    const nMatrix = buildFertilizerHeatmap({ rows, plots, locations, fertilizer: nitrogen });
-    const ureaMatrix = buildFertilizerHeatmap({ rows, plots, locations, fertilizer: urea });
-    expect(nMatrix.days).toEqual([20, 40]);
-    expect(nMatrix.rows[0].cells[20]).toEqual({ value: 5, count: 2 });
-    expect(nMatrix.rows[0].cells[40]).toBeNull();
-    expect(ureaMatrix.rows[0].cells[20]).toEqual({ value: 5, count: 1 });
-    expect(ureaMatrix.rows[0].cells[40]).toEqual({ value: 7, count: 1 });
+  it("creates one row per available observation day inside the manual range", () => {
+    const matrix = buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId: "L001", startDay: "30", endDay: "60" });
+    expect(matrix.rows.map((row) => row.day)).toEqual([30, 60]);
+    expect(matrix.rows[0].cells.plant_height).toEqual({ value: 0, count: 1 });
+    expect(matrix.rows[1].cells.plant_height).toEqual({ value: 26.3, count: 4 });
   });
 
-  it("creates treatment rows for the selected location", () => {
-    const matrix = buildTreatmentHeatmap({ rows: biometric, locations, metric: tillers, locationId: "L001" });
-    expect(matrix.rows.map((row) => row.key)).toEqual(["L001|T1"]);
-    expect(matrix.days).toEqual([30, 60]);
-    expect(matrix.rows[0].cells[60].value).toBe(8);
+  it("preserves missing metric values as null and excludes other locations", () => {
+    const matrix = buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId: "L001", startDay: 90, endDay: 90 });
+    expect(matrix.rows).toHaveLength(1);
+    expect(matrix.rows[0].cells.plant_height).toBeNull();
+    expect(matrix.rows[0].cells.tillers).toEqual({ value: 12, count: 1 });
   });
 
-  it("recalculates from updated Supabase-backed props", () => {
-    const before = buildBiometricHeatmap({ rows: biometric, plots, locations, metric: height });
-    const afterRows = biometric.map((row, index) => index === 3 ? { ...row, plant_height_cm: 35 } : row);
-    const after = buildBiometricHeatmap({ rows: afterRows, plots, locations, metric: height });
-    expect(before.rows[1].cells[60].value).toBe(20);
-    expect(after.rows[1].cells[60].value).toBe(35);
+  it("returns an empty matrix for incomplete or reversed manual ranges", () => {
+    expect(buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId: "L001", startDay: "", endDay: 60 }).rows).toEqual([]);
+    expect(buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId: "L001", startDay: 90, endDay: 30 }).rows).toEqual([]);
+  });
+
+  it("removes a metric column only when every cell is invalid", () => {
+    const matrix = removeEmptyHeatmapColumns({
+      columns: [{ key: "height" }, { key: "nodes" }],
+      rows: [
+        { cells: { height: { value: 10 }, nodes: null } },
+        { cells: { height: { value: 20 }, nodes: { value: undefined } } },
+      ],
+      values: {},
+    });
+    expect(matrix.columns.map((column) => column.key)).toEqual(["height"]);
+  });
+
+  it("keeps a column containing a genuine zero", () => {
+    const matrix = removeEmptyHeatmapColumns({
+      columns: [{ key: "height" }],
+      rows: [{ cells: { height: { value: 0 } } }],
+      values: {},
+    });
+    expect(matrix.columns.map((column) => column.key)).toEqual(["height"]);
+  });
+
+  it.each([null, undefined, "", "   ", Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])("treats %s as an invalid heatmap value", (value) => {
+    expect(hasValidHeatmapCell({ value })).toBe(false);
+  });
+
+  it("applies empty-column filtering to fertilizer-vs-metric output", () => {
+    const matrix = buildFertilizerMetricHeatmap({ biometricRows: biometric, fertigationRows: fertigation, locations, locationId: "L001", observationDay: 60 });
+    expect(matrix.columns.some((column) => column.key === "plant_height")).toBe(true);
+    expect(matrix.columns.some((column) => column.key === "leaves")).toBe(false);
+  });
+
+  it("applies empty-column filtering to day-vs-metric output", () => {
+    const matrix = buildDayMetricHeatmap({ biometricRows: biometric, locations, locationId: "L001", startDay: 30, endDay: 30 });
+    expect(matrix.columns.some((column) => column.key === "plant_height")).toBe(true);
+    expect(matrix.columns.some((column) => column.key === "nodes")).toBe(false);
+  });
+
+  it("removes every column for an all-empty matrix and exposes the required empty-state text", () => {
+    const matrix = removeEmptyHeatmapColumns({ columns: HEATMAP_METRICS, rows: [{ cells: {} }], values: {} });
+    expect(matrix.columns).toEqual([]);
+    expect(EMPTY_METRIC_MESSAGE).toBe("No valid metric data is available for the selected filters.");
   });
 });
