@@ -2,7 +2,7 @@ import { supabase } from "../utils/supabaseClient";
 
 export const APPROVED_COLLEGE_DASHBOARD_COLUMNS = [
   "id", "location_code", "location_name", "plot", "treatment",
-  "observation_day", "observation_date", "plant_number", "plant_height",
+  "observation_day", "observation_date", "plant_height",
   "tiller_count", "leaf_count", "leaf_length", "leaf_width",
   "plant_count_1m", "plant_count_5m", "plant_count_15m", "number_of_nodes",
   "node_length", "germination_pct", "fertigation_date", "white_potash_kg",

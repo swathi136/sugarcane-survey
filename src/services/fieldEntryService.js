@@ -1,5 +1,30 @@
 import { supabase } from "../utils/supabaseClient";
 
+const OBSERVATION_TABLES = {
+  field_entries: "college_raw_observations",
+  athani_field_entries: "athani_raw_observations",
+  anthiyur_field_entries: "anthiyur_raw_observations",
+};
+
+export async function insertFieldEntryObservations(sourceTable, rows) {
+  if (!rows.length) return [];
+  const observationTable = OBSERVATION_TABLES[sourceTable];
+  if (!observationTable) throw new Error(`Unknown observation source table: ${sourceTable}`);
+
+  const { data, error } = await supabase
+    .from(observationTable)
+    .insert(rows)
+    .select();
+
+  if (error) {
+    const insertError = new Error(`The averaged record was saved, but its raw observations could not be saved: ${error.message}`);
+    insertError.cause = error;
+    throw insertError;
+  }
+
+  return data || [];
+}
+
 export async function insertFieldEntry(payload) {
   try {
     const { data, error } = await supabase
@@ -40,7 +65,6 @@ function mapCollegeEntry(dbRow) {
     treatment: dbRow.treatment,
     obsDate: dbRow.observation_date,
     fertDate: dbRow.fertigation_date,
-    plantNum: dbRow.plant_number ?? "-",
     plantHeight: dbRow.plant_height ?? "-",
     numTillers: dbRow.tiller_count ?? "-",
     numLeaves: dbRow.leaf_count ?? "-",
@@ -81,7 +105,6 @@ function mapOtherEntry(dbRow, locationName, tableName) {
     treatment: dbRow.treatment,
     obsDate: dbRow.date_of_obs,
     fertDate: dbRow.fertigation_date,
-    plantNum: dbRow.plant_num ?? "-",
     plantHeight: dbRow.plant_height ?? "-",
     numTillers: dbRow.tiller_count ?? "-",
     numLeaves: dbRow.leaf_count ?? "-",
@@ -164,7 +187,6 @@ function mapFrontendToDb(tableName, data) {
   if (tableName === "field_entries") {
     if (data.obsDate !== undefined) payload.observation_date = data.obsDate;
     if (data.fertDate !== undefined) payload.fertigation_date = data.fertDate;
-    if (data.plantNum !== undefined) payload.plant_number = parseNum(data.plantNum);
     if (data.plantHeight !== undefined) payload.plant_height = parseNum(data.plantHeight);
     if (data.numTillers !== undefined) payload.tiller_count = parseNum(data.numTillers);
     if (data.numLeaves !== undefined) payload.leaf_count = parseNum(data.numLeaves);
@@ -191,7 +213,6 @@ function mapFrontendToDb(tableName, data) {
     // Athani / Anthiyur
     if (data.obsDate !== undefined) payload.date_of_obs = data.obsDate;
     if (data.fertDate !== undefined) payload.fertigation_date = data.fertDate;
-    if (data.plantNum !== undefined) payload.plant_num = parseNum(data.plantNum);
     if (data.plantHeight !== undefined) payload.plant_height = parseNum(data.plantHeight);
     if (data.numTillers !== undefined) payload.tiller_count = parseNum(data.numTillers);
     if (data.numLeaves !== undefined) payload.leaf_count = parseNum(data.numLeaves);

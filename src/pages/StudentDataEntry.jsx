@@ -18,9 +18,11 @@ import {
   Clock,
   Plus,
   Trash2,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
-import { insertFieldEntry } from "../services/fieldEntryService";
+import { insertFieldEntry, insertFieldEntryObservations } from "../services/fieldEntryService";
+import { averageFilledObservations, buildObservationRows } from "../utils/fieldObservations";
 
 // Master Location mappings
 const LOCATIONS = [
@@ -115,7 +117,12 @@ const formatCustomFields = (fields) =>
   Array.isArray(fields)
     ? fields
         .filter((field) => field?.name)
-        .map((field) => `${field.name}: ${field.value ?? "-"}`)
+        .map((field) => {
+          const observations = Array.isArray(field.observations)
+            ? ` (Obs: ${field.observations.map((value) => value ?? "-").join(", ")})`
+            : "";
+          return `${field.name}: Avg ${field.value ?? "-"}${observations}`;
+        })
         .join(", ")
     : "";
 
@@ -134,7 +141,6 @@ const normalizeStudentEntry = (row, locationName, tableName) => {
     treatment: row.treatment,
     obsDate: isCollegeEntry ? row.observation_date : row.date_of_obs,
     fertDate: row.fertigation_date,
-    plantNum: (isCollegeEntry ? row.plant_number : row.plant_num) ?? "-",
     plantHeight: row.plant_height ?? "-",
     numTillers: row.tiller_count ?? "-",
     numLeaves: row.leaf_count ?? "-",
@@ -164,6 +170,87 @@ const normalizeStudentEntry = (row, locationName, tableName) => {
   };
 };
 
+const MultiInput = ({ label, values, setValues, type = "number", step, min, placeholder }) => {
+  const count = values.filter((v) => v !== "").length;
+  const validVals = values
+    .filter((v) => v !== "")
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n >= 0);
+  const avg = validVals.length
+    ? (validVals.reduce((a, b) => a + b, 0) / validVals.length).toFixed(2)
+    : "";
+
+  const complete = count === 5;
+  const progressColor = complete ? "#15803d" : count > 0 ? "#b45309" : "#64748b";
+
+  return (
+    <details style={{ marginBottom: "12px", background: "#ffffff", borderRadius: "12px", border: `1px solid ${complete ? "#bbf7d0" : "#e2e8f0"}`, boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)", overflow: "hidden" }}>
+      <summary style={{ listStyle: "none", cursor: "pointer", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", userSelect: "none" }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>{label}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <span style={{ color: progressColor, background: complete ? "#f0fdf4" : count > 0 ? "#fffbeb" : "#f8fafc", borderRadius: "999px", padding: "4px 9px", fontSize: "11px", fontWeight: 800 }}>
+            {count}/5 entered
+          </span>
+          <span style={{ color: "#166534", fontSize: "12px", fontWeight: 800, minWidth: "82px", textAlign: "right" }}>Avg: {avg || "—"}</span>
+          <ChevronDown className="multi-input-chevron" size={17} color="#64748b" />
+        </span>
+      </summary>
+      <div style={{ borderTop: "1px solid #e2e8f0", background: "#f8fafc", padding: "14px 16px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "10px" }}>
+        {values.map((v, i) => (
+          <label key={i} style={{ display: "grid", gap: "5px", color: "#475569", fontSize: "11px", fontWeight: 700 }}>
+            Observation {i + 1}
+            <input
+              type={type}
+              min={min}
+              step={step ?? "any"}
+              placeholder={i === 0 ? placeholder : "Enter value"}
+              value={v}
+              onChange={(e) => {
+                const newVals = [...values];
+                newVals[i] = e.target.value;
+                setValues(newVals);
+              }}
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#ffffff", fontSize: "13px", textAlign: "center", outlineColor: "#16a34a" }}
+            />
+          </label>
+        ))}
+        </div>
+        <div style={{ marginTop: "10px", color: "#64748b", fontSize: "11px" }}>Leave an observation blank when it was not recorded. Zero is treated as a recorded value.</div>
+      </div>
+    </details>
+  );
+};
+
+const CustomObservationField = ({ field, onNameChange, onValuesChange, onRemove, accent = "green" }) => {
+  const blue = accent === "blue";
+  return (
+    <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: `1px solid ${blue ? "#bae6fd" : "#bbf7d0"}`, background: blue ? "#f0f9ff" : "#f0fdf4" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) auto", gap: 10, alignItems: "center", marginBottom: 8 }}>
+        <input
+          type="text"
+          aria-label="Custom requirement name"
+          placeholder={blue ? "Requirement name (e.g. Zinc Sulphate)" : "Requirement name (e.g. Cane Diameter)"}
+          value={field.name}
+          onChange={(event) => onNameChange(event.target.value)}
+          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+        />
+        <button type="button" aria-label={`Delete ${field.name || "custom requirement"}`} onClick={onRemove} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff1f2", border: "1px solid #fecdd3", color: "#9f1239", padding: "9px 11px", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>
+          <Trash2 size={15} /> Delete
+        </button>
+      </div>
+      <MultiInput
+        label={field.name.trim() || "Custom requirement observations"}
+        values={field.values}
+        setValues={onValuesChange}
+        min="0"
+        step="any"
+        placeholder="Enter value"
+      />
+    </div>
+  );
+};
+
 function StudentDataEntry({
   authSession,
   submissions = [],
@@ -183,36 +270,36 @@ function StudentDataEntry({
   const [selectedObsDay, setSelectedObsDay] = useState("30");
   const [dateOfObs, setDateOfObs] = useState(todayStr);
 
+  const emptyFive = () => ["", "", "", "", ""];
   // Section 2: Biometric Observation Field States
-  const [plantNum, setPlantNum] = useState("1");
-  const [plantHeight, setPlantHeight] = useState("");
-  const [numTillers, setNumTillers] = useState("");
-  const [numLeaves, setNumLeaves] = useState("");
-  const [leafLength, setLeafLength] = useState("");
-  const [leafBreadth, setLeafBreadth] = useState("");
-  const [numNodes, setNumNodes] = useState("");
-  const [nodeLength, setNodeLength] = useState("");
-  const [millableCaneCount, setMillableCaneCount] = useState("");
-  const [plantCount1m, setPlantCount1m] = useState("");
-  const [plantCount5m, setPlantCount5m] = useState("");
-  const [plantCount15m, setPlantCount15m] = useState("");
-  const [germinationPct, setGerminationPct] = useState("");
+  const [plantHeight, setPlantHeight] = useState(emptyFive());
+  const [numTillers, setNumTillers] = useState(emptyFive());
+  const [numLeaves, setNumLeaves] = useState(emptyFive());
+  const [leafLength, setLeafLength] = useState(emptyFive());
+  const [leafBreadth, setLeafBreadth] = useState(emptyFive());
+  const [numNodes, setNumNodes] = useState(emptyFive());
+  const [nodeLength, setNodeLength] = useState(emptyFive());
+  const [millableCaneCount, setMillableCaneCount] = useState(emptyFive());
+  const [plantCount1m, setPlantCount1m] = useState(emptyFive());
+  const [plantCount5m, setPlantCount5m] = useState(emptyFive());
+  const [plantCount15m, setPlantCount15m] = useState(emptyFive());
+  const [germinationPct, setGerminationPct] = useState(emptyFive());
 
   // Dynamic Custom Biometric Fields
   const [customBiometricFields, setCustomBiometricFields] = useState([]);
 
   // Section 3: Fertigation Schedule Field States
   const [fertigationDate, setFertigationDate] = useState(todayStr);
-  const [whitePotashKg, setWhitePotashKg] = useState("");
-  const [dapKg, setDapKg] = useState("");
-  const [sspKg, setSspKg] = useState("");
-  const [mnMixture, setMnMixture] = useState("");
-  const [nKg, setNKg] = useState("");
-  const [p2o5Kg, setP2o5Kg] = useState("");
-  const [k2oKg, setK2oKg] = useState("");
-  const [mapKg, setMapKg] = useState("");
-  const [ureaKg, setUreaKg] = useState("");
-  const [mopKg, setMopKg] = useState("");
+  const [whitePotashKg, setWhitePotashKg] = useState(emptyFive());
+  const [dapKg, setDapKg] = useState(emptyFive());
+  const [sspKg, setSspKg] = useState(emptyFive());
+  const [mnMixture, setMnMixture] = useState(emptyFive());
+  const [nKg, setNKg] = useState(emptyFive());
+  const [p2o5Kg, setP2o5Kg] = useState(emptyFive());
+  const [k2oKg, setK2oKg] = useState(emptyFive());
+  const [mapKg, setMapKg] = useState(emptyFive());
+  const [ureaKg, setUreaKg] = useState(emptyFive());
+  const [mopKg, setMopKg] = useState(emptyFive());
 
   // Dynamic Custom Fertigation Fields
   const [customFertigationFields, setCustomFertigationFields] = useState([]);
@@ -375,7 +462,7 @@ function StudentDataEntry({
   const addCustomBiometricField = () => {
     setCustomBiometricFields((prev) => [
       ...prev,
-      { id: Date.now() + Math.random(), name: "", value: "" },
+      { id: Date.now() + Math.random(), name: "", values: emptyFive() },
     ]);
   };
 
@@ -393,7 +480,7 @@ function StudentDataEntry({
   const addCustomFertigationField = () => {
     setCustomFertigationFields((prev) => [
       ...prev,
-      { id: Date.now() + Math.random(), name: "", value: "" },
+      { id: Date.now() + Math.random(), name: "", values: emptyFive() },
     ]);
   };
 
@@ -440,34 +527,35 @@ function StudentDataEntry({
       return;
     }
 
+    const hasData = (arr) => Array.isArray(arr) ? arr.some(v => v !== "") : !!arr;
+
     const hasBiometricData =
-      plantNum ||
-      plantHeight ||
-      numTillers ||
-      numLeaves ||
-      leafLength ||
-      leafBreadth ||
-      numNodes ||
-      nodeLength ||
-      millableCaneCount ||
-      plantCount1m ||
-      plantCount5m ||
-      plantCount15m ||
-      germinationPct ||
-      customBiometricFields.some((f) => f.value !== "");
+      hasData(plantHeight) ||
+      hasData(numTillers) ||
+      hasData(numLeaves) ||
+      hasData(leafLength) ||
+      hasData(leafBreadth) ||
+      hasData(numNodes) ||
+      hasData(nodeLength) ||
+      hasData(millableCaneCount) ||
+      hasData(plantCount1m) ||
+      hasData(plantCount5m) ||
+      hasData(plantCount15m) ||
+      hasData(germinationPct) ||
+      customBiometricFields.some((field) => field.values.some((value) => value !== ""));
 
     const hasFertigationData =
-      whitePotashKg ||
-      nKg ||
-      p2o5Kg ||
-      k2oKg ||
-      mnMixture ||
-      ureaKg ||
-      mopKg ||
-      dapKg ||
-      sspKg ||
-      mapKg ||
-      customFertigationFields.some((f) => f.value !== "");
+      hasData(whitePotashKg) ||
+      hasData(nKg) ||
+      hasData(p2o5Kg) ||
+      hasData(k2oKg) ||
+      hasData(mnMixture) ||
+      hasData(ureaKg) ||
+      hasData(mopKg) ||
+      hasData(dapKg) ||
+      hasData(sspKg) ||
+      hasData(mapKg) ||
+      customFertigationFields.some((field) => field.values.some((value) => value !== ""));
 
     if (!hasBiometricData && !hasFertigationData) {
       setSubmitError(
@@ -476,9 +564,16 @@ function StudentDataEntry({
       return;
     }
 
+    const unnamedCustomField = [...customBiometricFields, ...customFertigationFields]
+      .find((field) => field.values.some((value) => value !== "") && !field.name.trim());
+
+    if (unnamedCustomField) {
+      setSubmitError("Enter a name for every custom requirement that contains observations.");
+      return;
+    }
+
     // Validate main numerical fields
     const numericFields = [
-      { label: "Plant number", value: plantNum },
       { label: "Plant height", value: plantHeight },
       { label: "Tiller count", value: numTillers },
       { label: "Leaf count", value: numLeaves },
@@ -501,9 +596,18 @@ function StudentDataEntry({
       { label: "DAP", value: dapKg },
       { label: "SSP", value: sspKg },
       { label: "MOP", value: mopKg },
+      ...customBiometricFields.map((field) => ({ label: field.name.trim() || "Custom biometric requirement", value: field.values })),
+      ...customFertigationFields.map((field) => ({ label: field.name.trim() || "Custom fertigation requirement", value: field.values })),
     ];
 
     const invalidNumericField = numericFields.find(({ value }) => {
+      if (Array.isArray(value)) {
+        return value.some((v) => {
+          if (v === "" || v === null || v === undefined) return false;
+          const numericValue = Number(v);
+          return !Number.isFinite(numericValue) || numericValue < 0;
+        });
+      }
       if (value === "" || value === null || value === undefined) return false;
       const numericValue = Number(value);
       return !Number.isFinite(numericValue) || numericValue < 0;
@@ -517,21 +621,54 @@ function StudentDataEntry({
     }
 
     const asNullableNumber = (value) => {
+      if (Array.isArray(value)) {
+        return averageFilledObservations(value);
+      }
       if (value === "" || value === null || value === undefined) return null;
       const numericValue = Number(value);
       return Number.isFinite(numericValue) ? numericValue : null;
     };
 
-    // Format custom fields summary for logging
-    const customBioSummary = customBiometricFields
-      .filter((f) => f.name.trim() !== "")
-      .map((f) => `${f.name}: ${f.value || "0"}`)
-      .join(", ");
+    const saveRawObservations = (savedEntry, sourceTable, locationId, userId, fields) =>
+      insertFieldEntryObservations(sourceTable, buildObservationRows({
+        mainEntryId: savedEntry.id,
+        locationId,
+        observationDay,
+        observationDate: dateOfObs,
+        fertigationDate,
+        userId,
+        fields,
+      }));
 
-    const customFertSummary = customFertigationFields
-      .filter((f) => f.name.trim() !== "")
-      .map((f) => `${f.name}: ${f.value || "0"}`)
+    const biometricFields = [
+      ["plant_height", plantHeight], ["tiller_count", numTillers],
+      ["leaf_count", numLeaves], ["leaf_length", leafLength], ["leaf_width", leafBreadth],
+      ["number_of_nodes", numNodes], ["node_length", nodeLength],
+      ["millable_cane_count_1m", millableCaneCount], ["plant_count_1m", plantCount1m],
+      ["plant_count_5m", plantCount5m], ["plant_count_15m", plantCount15m],
+      ["germination_pct", germinationPct],
+    ].map(([fieldName, values]) => ({ category: "biometric", fieldName, values }));
+
+    const fertigationFields = [
+      ["white_potash_kg", whitePotashKg], ["n_kg", nKg], ["p2o5_kg", p2o5Kg],
+      ["k2o_kg", k2oKg], ["mn_mixture", mnMixture], ["urea", ureaKg],
+      ["map", mapKg], ["dap", dapKg], ["ssp", sspKg], ["mop", mopKg],
+    ].map(([fieldName, values]) => ({ category: "fertigation", fieldName, values }));
+
+    const serializeCustomFields = (fields) => fields
+      .filter((field) => field.name.trim() !== "" && field.values.some((value) => value !== ""))
+      .map((field) => ({
+        name: field.name.trim(),
+        observations: field.values.map((value) => value === "" ? null : Number(value)),
+        value: averageFilledObservations(field.values),
+      }));
+    const customBiometric = serializeCustomFields(customBiometricFields);
+    const customFertigation = serializeCustomFields(customFertigationFields);
+    const customFieldSummary = (fields) => fields
+      .map((field) => `${field.name}: ${field.value ?? "-"} avg`)
       .join(", ");
+    const customBioSummary = customFieldSummary(customBiometric);
+    const customFertSummary = customFieldSummary(customFertigation);
 
     // College Supabase database submission
     if (isCollege) {
@@ -556,7 +693,6 @@ function StudentDataEntry({
         observation_day: observationDay,
         observation_date: dateOfObs,
 
-        plant_number: asNullableNumber(plantNum),
         plant_height: asNullableNumber(plantHeight),
         tiller_count: asNullableNumber(numTillers),
         leaf_count: asNullableNumber(numLeaves),
@@ -580,6 +716,8 @@ function StudentDataEntry({
         dap: asNullableNumber(dapKg),
         ssp: asNullableNumber(sspKg),
         mop: asNullableNumber(mopKg),
+        custom_biometric: customBiometric,
+        custom_fertigation: customFertigation,
       };
 
       // Save student email to localStorage since we can't alter Supabase schema
@@ -600,6 +738,16 @@ function StudentDataEntry({
         }
 
         const savedEntry = await insertFieldEntry(payload);
+        await saveRawObservations(
+          savedEntry, "field_entries", "L001", sessionData.session.user.id,
+          [
+            ...biometricFields.filter(({ fieldName }) => fieldName !== "millable_cane_count_1m"),
+            ...fertigationFields.filter(({ fieldName }) => !["ssp", "mop"].includes(fieldName)).map((field) => ({
+              ...field,
+              fieldName: ({ urea: "urea_kg", map: "map_kg", dap: "dap_kg" })[field.fieldName] || field.fieldName,
+            })),
+          ],
+        );
 
         // Store email and real observation day locally since DB schema couldn't be updated
         const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
@@ -622,7 +770,6 @@ function StudentDataEntry({
           treatment: payload.treatment,
           obsDate: payload.observation_date,
           fertDate: payload.fertigation_date,
-          plantNum: payload.plant_number ?? "-",
           plantHeight: payload.plant_height ?? "-",
           numTillers: payload.tiller_count ?? "-",
           numLeaves: payload.leaf_count ?? "-",
@@ -665,14 +812,6 @@ function StudentDataEntry({
         setSubmitting(false);
       }
     } else if (isAthani) {
-      const customBiometric = customBiometricFields
-        .filter((field) => field.name.trim() !== "")
-        .map((field) => ({ name: field.name.trim(), value: field.value }));
-
-      const customFertigation = customFertigationFields
-        .filter((field) => field.name.trim() !== "")
-        .map((field) => ({ name: field.name.trim(), value: field.value }));
-
       const payload = {
         location_code: "L002",
         location_name: "Athani",
@@ -682,7 +821,6 @@ function StudentDataEntry({
         // Bypass max 240 days DB constraint by capping payload
         observation_day: observationDay > 240 ? 240 : observationDay,
         date_of_obs: dateOfObs,
-        plant_num: asNullableNumber(plantNum),
         plant_height: asNullableNumber(plantHeight),
         tiller_count: asNullableNumber(numTillers),
         leaf_count: asNullableNumber(numLeaves),
@@ -727,6 +865,20 @@ function StudentDataEntry({
           throw insertError;
         }
 
+        await saveRawObservations(
+          savedEntry, "athani_field_entries", "L002", user.id,
+          [
+            ...biometricFields.filter(({ fieldName }) => ["plant_height", "tiller_count", "leaf_count", "leaf_length", "leaf_width"].includes(fieldName)).map((field) => ({
+              ...field,
+              fieldName: ({ leaf_length: "leaf_height", leaf_width: "leaf_breath" })[field.fieldName] || field.fieldName,
+            })),
+            ...fertigationFields.filter(({ fieldName }) => !["ssp", "mop"].includes(fieldName)).map((field) => ({
+              ...field,
+              fieldName: ({ urea: "urea_kg", map: "map_kg", dap: "dap_kg" })[field.fieldName] || field.fieldName,
+            })),
+          ],
+        );
+
         // Store email and real observation day locally since DB schema couldn't be updated
         const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
         localMeta[savedEntry.id] = { 
@@ -748,7 +900,6 @@ function StudentDataEntry({
           treatment: payload.treatment,
           obsDate: payload.date_of_obs,
           fertDate: payload.fertigation_date,
-          plantNum: payload.plant_num ?? "-",
           plantHeight: payload.plant_height ?? "-",
           numTillers: payload.tiller_count ?? "-",
           numLeaves: payload.leaf_count ?? "-",
@@ -781,14 +932,6 @@ function StudentDataEntry({
         setSubmitting(false);
       }
     } else {
-      const customBiometric = customBiometricFields
-        .filter((field) => field.name.trim() !== "")
-        .map((field) => ({ name: field.name.trim(), value: field.value }));
-
-      const customFertigation = customFertigationFields
-        .filter((field) => field.name.trim() !== "")
-        .map((field) => ({ name: field.name.trim(), value: field.value }));
-
       const payload = {
         location_code: "L003",
         location_name: "Anthiyur",
@@ -846,6 +989,20 @@ function StudentDataEntry({
           throw insertError;
         }
 
+        await saveRawObservations(
+          savedEntry, "anthiyur_field_entries", "L003", user.id,
+          [
+            ...biometricFields.filter(({ fieldName }) => ["plant_height", "tiller_count", "leaf_count", "leaf_length", "leaf_width", "number_of_nodes", "node_length", "millable_cane_count_1m", "plant_count_1m"].includes(fieldName)).map((field) => ({
+              ...field,
+              fieldName: ({ leaf_length: "leaf_height", leaf_width: "leaf_breath" })[field.fieldName] || field.fieldName,
+            })),
+            ...fertigationFields.filter(({ fieldName }) => !["ssp", "mop"].includes(fieldName)).map((field) => ({
+              ...field,
+              fieldName: ({ urea: "urea_kg", map: "map_kg", dap: "dap_kg" })[field.fieldName] || field.fieldName,
+            })),
+          ],
+        );
+
         // Store email and real observation day locally since DB schema couldn't be updated
         const localMeta = JSON.parse(localStorage.getItem("adminApprovalMeta") || "{}");
         localMeta[savedEntry.id] = { 
@@ -867,7 +1024,6 @@ function StudentDataEntry({
           treatment: payload.treatment,
           obsDate: payload.date_of_obs,
           fertDate: payload.fertigation_date,
-          plantNum: "-",
           plantHeight: payload.plant_height ?? "-",
           numTillers: payload.tiller_count ?? "-",
           numLeaves: payload.leaf_count ?? "-",
@@ -907,28 +1063,29 @@ function StudentDataEntry({
   };
 
   const clearFormInputs = () => {
-    setPlantHeight("");
-    setNumTillers("");
-    setNumLeaves("");
-    setLeafLength("");
-    setLeafBreadth("");
-    setNumNodes("");
-    setNodeLength("");
-    setMillableCaneCount("");
-    setPlantCount1m("");
-    setPlantCount5m("");
-    setPlantCount15m("");
-    setGerminationPct("");
-    setWhitePotashKg("");
-    setNKg("");
-    setP2o5Kg("");
-    setK2oKg("");
-    setMnMixture("");
-    setUreaKg("");
-    setMopKg("");
-    setDapKg("");
-    setSspKg("");
-    setMapKg("");
+    const empty = ["", "", "", "", ""];
+    setPlantHeight(empty);
+    setNumTillers(empty);
+    setNumLeaves(empty);
+    setLeafLength(empty);
+    setLeafBreadth(empty);
+    setNumNodes(empty);
+    setNodeLength(empty);
+    setMillableCaneCount(empty);
+    setPlantCount1m(empty);
+    setPlantCount5m(empty);
+    setPlantCount15m(empty);
+    setGerminationPct(empty);
+    setWhitePotashKg(empty);
+    setNKg(empty);
+    setP2o5Kg(empty);
+    setK2oKg(empty);
+    setMnMixture(empty);
+    setUreaKg(empty);
+    setMopKg(empty);
+    setDapKg(empty);
+    setSspKg(empty);
+    setMapKg(empty);
     setCustomBiometricFields([]);
     setCustomFertigationFields([]);
   };
@@ -1462,232 +1619,43 @@ function StudentDataEntry({
               </div>
 
               <div style={{ fontSize: "12px", fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px" }}>
-                All fields active for Observation Day: <b>{selectedObsDay || "1"}</b> (Enter 0 if no data)
+                All fields active for Observation Day: <b>{selectedObsDay || "1"}</b> (Leave blank if not recorded)
               </div>
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
                 gap: "18px",
                 marginBottom: "20px",
               }}
             >
-              {/* Plant Number (Common / Athani / College) */}
-              {(isCollege || isAthani) && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Plant Number (plant_num)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="e.g. 1"
-                    value={plantNum}
-                    onChange={(e) => setPlantNum(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
-              )}
-
-              {/* Plant Height (All Locations) */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                  Plant Height (plant_height) [cm]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g. 185.5 (or 0)"
-                  value={plantHeight}
-                  onChange={(e) => setPlantHeight(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* Tiller Count (All Locations) */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                  Tiller Count (tiller_count / no of tillers)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 8 (or 0)"
-                  value={numTillers}
-                  onChange={(e) => setNumTillers(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* Leaf Count (All Locations) */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                  Leaf Count (leaf_count / no of leaf)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 12 (or 0)"
-                  value={numLeaves}
-                  onChange={(e) => setNumLeaves(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* Leaf Height / Length (All Locations) */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                  Leaf Height / Length (leaf_height / leaf_length) [cm]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g. 110.2 (or 0)"
-                  value={leafLength}
-                  onChange={(e) => setLeafLength(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* Leaf Breath / Width (All Locations) */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                  Leaf Breath / Width (leaf_breath / leaf_width) [cm]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g. 4.5 (or 0)"
-                  value={leafBreadth}
-                  onChange={(e) => setLeafBreadth(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* Number of Nodes (Anthiyur & College) */}
+              <MultiInput label="Plant Height (plant_height) [cm]" values={plantHeight} setValues={setPlantHeight} min="0" step="0.1" placeholder="e.g. 185.5" />
+              <MultiInput label="Tiller Count (tiller_count / no of tillers)" values={numTillers} setValues={setNumTillers} min="0" placeholder="e.g. 8" />
+              <MultiInput label="Leaf Count (leaf_count / no of leaf)" values={numLeaves} setValues={setNumLeaves} min="0" placeholder="e.g. 12" />
+              <MultiInput label="Leaf Height / Length (leaf_height / leaf_length) [cm]" values={leafLength} setValues={setLeafLength} min="0" step="0.1" placeholder="e.g. 110.2" />
+              <MultiInput label="Leaf Breath / Width (leaf_breath / leaf_width) [cm]" values={leafBreadth} setValues={setLeafBreadth} min="0" step="0.1" placeholder="e.g. 4.5" />
               {(isAnthiyur || isCollege) && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Number of Nodes (no of node / number_of_nodes)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 14 (or 0)"
-                    value={numNodes}
-                    onChange={(e) => setNumNodes(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Number of Nodes (no of node / number_of_nodes)" values={numNodes} setValues={setNumNodes} min="0" placeholder="e.g. 14" />
               )}
-
-              {/* Node Length (Anthiyur & College) */}
               {(isAnthiyur || isCollege) && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Node Length (node length / node_length) [cm]
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    placeholder="e.g. 12.4 (or 0)"
-                    value={nodeLength}
-                    onChange={(e) => setNodeLength(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Node Length (node length / node_length) [cm]" values={nodeLength} setValues={setNodeLength} min="0" step="0.1" placeholder="e.g. 12.4" />
               )}
-
-              {/* Millable Cane 1m (Anthiyur) */}
               {isAnthiyur && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Millable Cane Count 1m [millable cane(1m)]
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 6 (or 0)"
-                    value={millableCaneCount}
-                    onChange={(e) => setMillableCaneCount(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Millable Cane Count 1m [millable cane(1m)]" values={millableCaneCount} setValues={setMillableCaneCount} min="0" placeholder="e.g. 6" />
               )}
-
-              {/* Row Length MC 1m / Plant Count 1m (Anthiyur & College) */}
               {(isAnthiyur || isCollege) && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Row Length MC 1m / Plant Count 1m [row length mc(1m)]
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 15 (or 0)"
-                    value={plantCount1m}
-                    onChange={(e) => setPlantCount1m(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Row Length MC 1m / Plant Count 1m [row length mc(1m)]" values={plantCount1m} setValues={setPlantCount1m} min="0" placeholder="e.g. 15" />
               )}
-
-              {/* Plant Count 5m (College) */}
               {isCollege && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Plant Count 5m Row (plant_count_5m)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 72 (or 0)"
-                    value={plantCount5m}
-                    onChange={(e) => setPlantCount5m(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Plant Count 5m Row (plant_count_5m)" values={plantCount5m} setValues={setPlantCount5m} min="0" placeholder="e.g. 72" />
               )}
-
-              {/* Plant Count 15m (College) */}
               {isCollege && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Plant Count 15m Row (plant_count_15m)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 210 (or 0)"
-                    value={plantCount15m}
-                    onChange={(e) => setPlantCount15m(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Plant Count 15m Row (plant_count_15m)" values={plantCount15m} setValues={setPlantCount15m} min="0" placeholder="e.g. 210" />
               )}
-
-              {/* Germination % (College) */}
               {isCollege && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px" }}>
-                    Germination % (germination_pct)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    placeholder="e.g. 88.5 (or 0)"
-                    value={germinationPct}
-                    onChange={(e) => setGerminationPct(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="Germination % (germination_pct)" values={germinationPct} setValues={setGerminationPct} min="0" step="0.1" placeholder="e.g. 88.5" />
               )}
             </div>
 
@@ -1720,49 +1688,13 @@ function StudentDataEntry({
               </div>
 
               {customBiometricFields.map((field) => (
-                <div
+                <CustomObservationField
                   key={field.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr auto",
-                    gap: "12px",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                    background: "#f8fafc",
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                  }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Requirement Name (e.g. Cane Diameter)"
-                    value={field.name}
-                    onChange={(e) => updateCustomBiometricField(field.id, "name", e.target.value)}
-                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. 3.2 cm)"
-                    value={field.value}
-                    onChange={(e) => updateCustomBiometricField(field.id, "value", e.target.value)}
-                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCustomBiometricField(field.id)}
-                    style={{
-                      background: "#fef2f2",
-                      border: "1px solid #fecaca",
-                      color: "#991b1b",
-                      padding: "8px",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                  field={field}
+                  onNameChange={(value) => updateCustomBiometricField(field.id, "name", value)}
+                  onValuesChange={(values) => updateCustomBiometricField(field.id, "values", values)}
+                  onRemove={() => removeCustomBiometricField(field.id)}
+                />
               ))}
             </div>
           </div>
@@ -1807,12 +1739,12 @@ function StudentDataEntry({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
                 gap: "18px",
               }}
             >
               {/* FERTIGATION APPLICATION DATE */}
-              <div style={{ background: "#e0f2fe", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #38bdf8" }}>
+              <div style={{ background: "#e0f2fe", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #38bdf8", marginBottom: "16px" }}>
                 <label style={{ fontSize: "12px", fontWeight: 700, color: "#0369a1", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
                   Fertigation Application Date *
                 </label>
@@ -1824,168 +1756,20 @@ function StudentDataEntry({
                 />
               </div>
 
-              {/* N_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  N (N_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 4.40 (or 0)"
-                  value={nKg}
-                  onChange={(e) => setNKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
+              <MultiInput label="N (N_KG) [kg]" values={nKg} setValues={setNKg} min="0" step="0.01" placeholder="e.g. 4.40" />
+              <MultiInput label="P2O5 (P2O5_KG) [kg]" values={p2o5Kg} setValues={setP2o5Kg} min="0" step="0.01" placeholder="e.g. 4.41" />
+              <MultiInput label="K2O (K2O_KG) [kg]" values={k2oKg} setValues={setK2oKg} min="0" step="0.01" placeholder="e.g. 1.38" />
+              <MultiInput label="Mn Mixture (MN_MIXTURE) [kg]" values={mnMixture} setValues={setMnMixture} min="0" step="0.01" placeholder="e.g. 4.60" />
+              <MultiInput label="Urea (UREA_KG) [kg]" values={ureaKg} setValues={setUreaKg} min="0" step="0.01" placeholder="e.g. 7.66" />
+              <MultiInput label="MAP (MAP_KG) [kg]" values={mapKg} setValues={setMapKg} min="0" step="0.01" placeholder="e.g. 7.22" />
+              <MultiInput label="DAP (DAP_KG) [kg]" values={dapKg} setValues={setDapKg} min="0" step="0.01" placeholder="e.g. 57.39" />
+              <MultiInput label="White Potash (WHITE_POTASH_KG) [kg]" values={whitePotashKg} setValues={setWhitePotashKg} min="0" step="0.01" placeholder="e.g. 2.30" />
 
-              {/* P2O5_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  P2O5 (P2O5_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 4.41 (or 0)"
-                  value={p2o5Kg}
-                  onChange={(e) => setP2o5Kg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* K2O_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  K2O (K2O_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 1.38 (or 0)"
-                  value={k2oKg}
-                  onChange={(e) => setK2oKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* MN_MIXTURE */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  Mn Mixture (MN_MIXTURE) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 4.60 (or 0)"
-                  value={mnMixture}
-                  onChange={(e) => setMnMixture(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* UREA_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  Urea (UREA_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 7.66 (or 0)"
-                  value={ureaKg}
-                  onChange={(e) => setUreaKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* MAP_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  MAP (MAP_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 7.22 (or 0)"
-                  value={mapKg}
-                  onChange={(e) => setMapKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* DAP_KG */}
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  DAP (DAP_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 57.39 (or 0)"
-                  value={dapKg}
-                  onChange={(e) => setDapKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                />
-              </div>
-
-              {/* WHITE_POTASH_KG */}
-              <div style={{ background: "#f0fdf4", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #86efac" }}>
-                <label style={{ fontSize: "12px", fontWeight: 700, color: "#166534", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                  White Potash (WHITE_POTASH_KG) [kg]
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 2.30 (or 0)"
-                  value={whitePotashKg}
-                  onChange={(e) => setWhitePotashKg(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #22c55e", fontSize: "14px", fontWeight: 600 }}
-                />
-              </div>
-
-              {/* SSP (College Specific) */}
               {isCollege && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                    SSP (ssp_kg) [kg]
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g. 25.0 (or 0)"
-                    value={sspKg}
-                    onChange={(e) => setSspKg(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="SSP (ssp_kg) [kg]" values={sspKg} setValues={setSspKg} min="0" step="0.01" placeholder="e.g. 25.0" />
               )}
-
-              {/* MOP (College Specific) */}
               {isCollege && (
-                <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#334155", display: "block", marginBottom: "4px", whiteSpace: "nowrap" }}>
-                    MOP (mop_kg) [kg]
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g. 2.30 (or 0)"
-                    value={mopKg}
-                    onChange={(e) => setMopKg(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
-                  />
-                </div>
+                <MultiInput label="MOP (mop_kg) [kg]" values={mopKg} setValues={setMopKg} min="0" step="0.01" placeholder="e.g. 2.30" />
               )}
             </div>
 
@@ -2018,49 +1802,14 @@ function StudentDataEntry({
               </div>
 
               {customFertigationFields.map((field) => (
-                <div
+                <CustomObservationField
                   key={field.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr auto",
-                    gap: "12px",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                    background: "#f0f9ff",
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid #bae6fd",
-                  }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Requirement Name (e.g. Zinc Sulphate)"
-                    value={field.name}
-                    onChange={(e) => updateCustomFertigationField(field.id, "name", e.target.value)}
-                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. 1.5 kg)"
-                    value={field.value}
-                    onChange={(e) => updateCustomFertigationField(field.id, "value", e.target.value)}
-                    style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCustomFertigationField(field.id)}
-                    style={{
-                      background: "#fef2f2",
-                      border: "1px solid #fecaca",
-                      color: "#991b1b",
-                      padding: "8px",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                  field={field}
+                  accent="blue"
+                  onNameChange={(value) => updateCustomFertigationField(field.id, "name", value)}
+                  onValuesChange={(values) => updateCustomFertigationField(field.id, "values", values)}
+                  onRemove={() => removeCustomFertigationField(field.id)}
+                />
               ))}
             </div>
           </div>
@@ -2221,7 +1970,7 @@ function StudentDataEntry({
                           )}
                         </td>
                         <td style={{ padding: "10px 12px" }}>
-                          Plant #{entry.plantNum} | Height: {entry.plantHeight}cm | Tillers: {entry.numTillers} | Leaves: {entry.numLeaves} | Leaf Ht: {entry.leafLength}cm | Leaf Br: {entry.leafBreadth}cm
+                          Height: {entry.plantHeight}cm | Tillers: {entry.numTillers} | Leaves: {entry.numLeaves} | Leaf Ht: {entry.leafLength}cm | Leaf Br: {entry.leafBreadth}cm
                           {entry.customBiometrics && <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px" }}>Extra: {entry.customBiometrics}</div>}
                         </td>
                         <td style={{ padding: "10px 12px", fontSize: "12px", color: "#0369a1" }}>

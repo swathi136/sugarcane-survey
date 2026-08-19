@@ -11,34 +11,32 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { Rectangle } from "recharts";
-
 // ── 1. PREMIUM COLOR PALETTE — 12 Lush Agriculture Greens ──────────
 export const PREMIUM_GRADIENTS = [
   // Forest Green
-  { id: "pg0",  top: "#2D7D47", bot: "#1A5C38", glow: "rgba(26,92,56,0.24)",    stroke: "#1A5C38"  },
+  { id: "pg0",  top: "#527A63", bot: "#456B56", glow: "transparent", stroke: "#3F6350" },
   // Emerald
-  { id: "pg1",  top: "#34D399", bot: "#10B981", glow: "rgba(16,185,129,0.24)",  stroke: "#10B981"  },
+  { id: "pg1",  top: "#668E76", bot: "#587E68", glow: "transparent", stroke: "#507460" },
   // Leaf Green
-  { id: "pg2",  top: "#4ADE80", bot: "#22C55E", glow: "rgba(34,197,94,0.24)",   stroke: "#22C55E"  },
+  { id: "pg2",  top: "#789B84", bot: "#698C75", glow: "transparent", stroke: "#60816C" },
   // Lime Green
-  { id: "pg3",  top: "#A3E635", bot: "#84CC16", glow: "rgba(132,204,22,0.24)",  stroke: "#84CC16"  },
+  { id: "pg3",  top: "#8AA68E", bot: "#79977F", glow: "transparent", stroke: "#708C77" },
   // Olive Green
-  { id: "pg4",  top: "#8FAB4A", bot: "#6B7C3C", glow: "rgba(107,124,60,0.24)",  stroke: "#6B7C3C"  },
+  { id: "pg4",  top: "#75886B", bot: "#66795D", glow: "transparent", stroke: "#5D7055" },
   // Moss Green
-  { id: "pg5",  top: "#5A8032", bot: "#3F6212", glow: "rgba(63,98,18,0.24)",    stroke: "#3F6212"  },
+  { id: "pg5",  top: "#627B68", bot: "#536C59", glow: "transparent", stroke: "#4C6352" },
   // Sage Green
-  { id: "pg6",  top: "#9DC4A1", bot: "#7BAE7F", glow: "rgba(123,174,127,0.24)", stroke: "#7BAE7F"  },
+  { id: "pg6",  top: "#91A99A", bot: "#81998A", glow: "transparent", stroke: "#768E80" },
   // Mint Green
-  { id: "pg7",  top: "#6EE7B7", bot: "#34D399", glow: "rgba(52,211,153,0.24)",  stroke: "#34D399"  },
+  { id: "pg7",  top: "#6F9482", bot: "#608472", glow: "transparent", stroke: "#577969" },
   // Tea Green
-  { id: "pg8",  top: "#BBF7D0", bot: "#86EFAC", glow: "rgba(134,239,172,0.30)", stroke: "#4ADE80"  },
+  { id: "pg8",  top: "#9BB3A2", bot: "#8BA392", glow: "transparent", stroke: "#809787" },
   // Pine Green
-  { id: "pg9",  top: "#166534", bot: "#14532D", glow: "rgba(20,83,45,0.26)",    stroke: "#14532D"  },
+  { id: "pg9",  top: "#466A55", bot: "#395D49", glow: "transparent", stroke: "#315440" },
   // Fern Green
-  { id: "pg10", top: "#86EFAC", bot: "#4ADE80", glow: "rgba(74,222,128,0.24)",  stroke: "#22C55E"  },
+  { id: "pg10", top: "#82A088", bot: "#729178", glow: "transparent", stroke: "#68866E" },
   // Jade Green
-  { id: "pg11", top: "#5EEAD4", bot: "#14B8A6", glow: "rgba(20,184,166,0.24)",  stroke: "#14B8A6"  },
+  { id: "pg11", top: "#6F9991", bot: "#608A82", glow: "transparent", stroke: "#567F77" },
 ];
 
 // ── 2. SVG DEFS — must be rendered inside <BarChart> via <defs> ──────
@@ -342,16 +340,16 @@ export const premiumTooltipItemStyle = {
 
 // ── 8. PREMIUM CARTESIAN GRID PROPS ──────────────────────────────────
 export const premiumGridProps = {
-  strokeDasharray: "3 6",
-  stroke: "rgba(148,190,158,0.18)",
+  strokeDasharray: "3 5",
+  stroke: "#E2E8E5",
   vertical: false,
 };
 
 // ── 9. PREMIUM AXIS TICK STYLE ────────────────────────────────────────
 export const premiumAxisTick = {
   fontSize: 12,
-  fill: "#6B8A6B",
-  fontWeight: 500,
+  fill: "#64748B",
+  fontWeight: 600,
 };
 
 // ── 10. PREMIUM LEGEND STYLE ──────────────────────────────────────────

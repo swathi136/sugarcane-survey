@@ -251,6 +251,8 @@ const fallbackFertigationDayOptions = useMemo(() => {
 
 const biometricDayOptions = serverAnalysis?.biometricDayOptions || fallbackBiometricDayOptions;
 const fertigationDayOptions = serverAnalysis?.fertigationDayOptions || fallbackFertigationDayOptions;
+const biometricDayOptionsKey = biometricDayOptions.join(",");
+const fertigationDayOptionsKey = fertigationDayOptions.join(",");
 
 const [bioStartIndex, setBioStartIndex] = useState(0);
 const [bioEndIndex, setBioEndIndex] = useState(0);
@@ -260,12 +262,12 @@ const [fertEndIndex, setFertEndIndex] = useState(0);
 useEffect(() => {
   setBioStartIndex(0);
   setBioEndIndex(Math.max(biometricDayOptions.length - 1, 0));
-}, [biometricDayOptions]);
+}, [biometricDayOptionsKey]);
 
 useEffect(() => {
   setFertStartIndex(0);
   setFertEndIndex(Math.max(fertigationDayOptions.length - 1, 0));
-}, [fertigationDayOptions]);
+}, [fertigationDayOptionsKey]);
 
 const bioDayMin = biometricDayOptions[bioStartIndex] ?? 0;
 const bioDayMax = biometricDayOptions[bioEndIndex] ?? 0;
@@ -611,6 +613,11 @@ useEffect(() => {
 
   const locationComparison = serverAnalysis?.locationComparison || fallbackLocationComparison;
   const treatmentComparison = serverAnalysis?.treatmentComparison || fallbackTreatmentComparison;
+  const treatmentScoreChartData = treatmentComparison.some(
+    (row) => toFiniteMetricOrNull(row.performanceScore) !== null
+  )
+    ? treatmentComparison
+    : fallbackTreatmentComparison;
   const dayWiseBiometric = serverAnalysis?.dayWiseBiometric || fallbackDayWiseBiometric;
   const dayWiseFertigation = serverAnalysis?.dayWiseFertigation || fallbackDayWiseFertigation;
   const nutrientVsGrowth = serverAnalysis?.nutrientVsGrowth || fallbackNutrientVsGrowth;
@@ -910,7 +917,7 @@ function resetFilters() {
           <section className="comparison-grid">
             <LocationGrowthChart locationComparison={locationComparison} />
 
-            <TreatmentScoreChart treatmentComparison={treatmentComparison} treatments={data.treatments} />
+            <TreatmentScoreChart treatmentComparison={treatmentScoreChartData} treatments={data.treatments} />
           </section>
         </>
       )}
@@ -922,7 +929,7 @@ function resetFilters() {
       {activeTab === "treatment" && (
         <>
           <section className="comparison-grid">
-            <TreatmentScoreChart treatmentComparison={treatmentComparison} treatments={data.treatments} />
+            <TreatmentScoreChart treatmentComparison={treatmentScoreChartData} treatments={data.treatments} />
 
             <div className="card chart-card">
               <div className="card-header">

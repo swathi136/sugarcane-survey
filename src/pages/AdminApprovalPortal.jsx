@@ -50,13 +50,13 @@ const collegeFieldGroups = [
   ),
   ...fields(
     [
-      "plant_number", "plant_height", "tiller_count", "leaf_count", "leaf_length", "leaf_width",
+      "plant_height", "tiller_count", "leaf_count", "leaf_length", "leaf_width",
       "plant_count_1m", "plant_count_5m", "plant_count_15m", "number_of_nodes", "node_length",
       "germination_pct",
     ],
     "Biometric Observations",
     {
-      plant_number: "integer", plant_height: "numeric", tiller_count: "integer", leaf_count: "integer",
+      plant_height: "numeric", tiller_count: "integer", leaf_count: "integer",
       leaf_length: "numeric", leaf_width: "numeric", plant_count_1m: "integer", plant_count_5m: "integer",
       plant_count_15m: "integer", number_of_nodes: "integer", node_length: "numeric", germination_pct: "numeric",
     },
@@ -82,10 +82,10 @@ const athaniFieldGroups = [
     { observation_day: "integer", date_of_obs: "date" },
   ),
   ...fields(
-    ["plant_num", "plant_height", "tiller_count", "leaf_count", "leaf_height", "leaf_breath"],
+    ["plant_height", "tiller_count", "leaf_count", "leaf_height", "leaf_breath"],
     "Biometric Observations",
     {
-      plant_num: "integer", plant_height: "numeric", tiller_count: "integer", leaf_count: "integer",
+      plant_height: "numeric", tiller_count: "integer", leaf_count: "integer",
       leaf_height: "numeric", leaf_breath: "numeric",
     },
   ),
@@ -143,7 +143,7 @@ const fieldGroupsByTable = {
 
 const requiredFieldsByTable = {
   field_entries: new Set(["plot", "treatment", "observation_day", "observation_date"]),
-  athani_field_entries: new Set(["plot", "treatment", "observation_day", "date_of_obs", "plant_num", "fertigation_date"]),
+  athani_field_entries: new Set(["plot", "treatment", "observation_day", "date_of_obs", "fertigation_date"]),
   anthiyur_field_entries: new Set(["plot", "treatment", "observation_day", "date_of_obs", "fertigation_date"]),
 };
 
@@ -220,7 +220,13 @@ function JsonRows({ value }) {
     <div style={{ display: "grid", gap: 6 }}>
       {rows.map((item, index) => (
         <div key={index} style={{ background: "#f8fafc", borderRadius: 7, padding: "7px 9px" }}>
-          <b>{displayValue(item?.name)}</b>: {displayValue(item?.value)}{!isAbsent(item?.unit) ? ` ${item.unit}` : ""}
+          <div><b>{displayValue(item?.name)}</b></div>
+          <div>Average: {displayValue(item?.value)}{!isAbsent(item?.unit) ? ` ${item.unit}` : ""}</div>
+          {Array.isArray(item?.observations) && (
+            <div style={{ color: "#64748b", marginTop: 3 }}>
+              Observations: {item.observations.map((observation) => displayValue(observation)).join(" · ")}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -230,16 +236,49 @@ function JsonRows({ value }) {
 function JsonEditor({ value, onChange }) {
   const rows = parseJsonArray(value);
   const update = (index, key, nextValue) => onChange(rows.map((row, i) => i === index ? { ...row, [key]: nextValue } : row));
+  const updateObservation = (index, observationIndex, nextValue) => {
+    const nextRows = rows.map((row, i) => {
+      if (i !== index) return row;
+      const observations = Array.from({ length: 5 }, (_, position) => row?.observations?.[position] ?? null);
+      observations[observationIndex] = nextValue === "" ? null : Number(nextValue);
+      const populated = observations.filter((observation) => Number.isFinite(observation));
+      const average = populated.length
+        ? Number((populated.reduce((sum, observation) => sum + observation, 0) / populated.length).toFixed(2))
+        : null;
+      return { ...row, observations, value: average };
+    });
+    onChange(nextRows);
+  };
   return (
     <div style={{ display: "grid", gap: 8 }}>
       {rows.map((row, index) => (
-        <div key={index} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
-          <input style={inputStyle} value={row?.name ?? ""} placeholder="Name" onChange={(e) => update(index, "name", e.target.value)} />
-          <input style={inputStyle} value={row?.value ?? ""} placeholder="Value" onChange={(e) => update(index, "value", e.target.value)} />
-          <button type="button" style={{ ...buttonStyle, background: "#fee2e2", color: "#991b1b" }} onClick={() => onChange(rows.filter((_, i) => i !== index))}>Remove</button>
+        <div key={index} style={{ display: "grid", gap: 8, padding: 10, border: "1px solid #e2e8f0", borderRadius: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
+            <input style={inputStyle} value={row?.name ?? ""} placeholder="Custom requirement name" onChange={(e) => update(index, "name", e.target.value)} />
+            <span style={{ color: "#475569", fontWeight: 700 }}>Avg: {displayValue(row?.value)}</span>
+            <button type="button" style={{ ...buttonStyle, background: "#fee2e2", color: "#991b1b" }} onClick={() => onChange(rows.filter((_, i) => i !== index))}>Remove</button>
+          </div>
+          {Array.isArray(row?.observations) ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(72px, 1fr))", gap: 8 }}>
+              {Array.from({ length: 5 }, (_, observationIndex) => (
+                <input
+                  key={observationIndex}
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={row.observations?.[observationIndex] ?? ""}
+                  placeholder={`Obs ${observationIndex + 1}`}
+                  onChange={(event) => updateObservation(index, observationIndex, event.target.value)}
+                />
+              ))}
+            </div>
+          ) : (
+            <input style={inputStyle} value={row?.value ?? ""} placeholder="Legacy value" onChange={(e) => update(index, "value", e.target.value)} />
+          )}
         </div>
       ))}
-      <button type="button" style={{ ...buttonStyle, background: "#e0f2fe", color: "#0369a1", justifySelf: "start" }} onClick={() => onChange([...rows, { name: "", value: "" }])}>Add row</button>
+      <button type="button" style={{ ...buttonStyle, background: "#e0f2fe", color: "#0369a1", justifySelf: "start" }} onClick={() => onChange([...rows, { name: "", observations: [null, null, null, null, null], value: null }])}>Add row</button>
     </div>
   );
 }

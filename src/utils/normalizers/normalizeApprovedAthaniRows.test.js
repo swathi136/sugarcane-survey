@@ -16,7 +16,7 @@ describe("approved Athani normalization", () => {
     const result = normalizeApprovedAthaniRows([base], lookup);
     expect(result.biometric[0]).toMatchObject({
       source_row_id: "athani-1", source_table: "athani_field_entries", location_id: "L002",
-      plot_id: "P029", plot_label: "Plot A", plant_number: 1, plant_height_cm: 0,
+      plot_id: "P029", plot_label: "Plot A", plant_height_cm: 0,
       leaf_length_cm: 21.5, leaf_breadth_cm: 1.2,
     });
     expect(result.fertigation[0]).toMatchObject({ n_kg: 0, k2o_kg: null, map_kg: 0, date: "2026-08-03" });

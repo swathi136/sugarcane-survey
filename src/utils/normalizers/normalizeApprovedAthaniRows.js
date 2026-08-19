@@ -4,7 +4,7 @@ const ATHANI_LOCATION_ID = "L002";
 const MIN_OBSERVATION_DAY = 1;
 const MAX_OBSERVATION_DAY = 240;
 
-const INTEGER_FIELDS = new Set(["plant_num", "tiller_count", "leaf_count"]);
+const INTEGER_FIELDS = new Set(["tiller_count", "leaf_count"]);
 const BIOMETRIC_FIELDS = [
   "plant_height", "tiller_count", "leaf_count", "leaf_height", "leaf_breath",
 ];
@@ -12,7 +12,7 @@ const FERTIGATION_FIELDS = [
   "n_kg", "p2o5_kg", "k2o_kg", "mn_mixture", "urea_kg", "map_kg", "dap_kg",
   "white_potash_kg",
 ];
-const NUMERIC_FIELDS = ["plant_num", ...BIOMETRIC_FIELDS, ...FERTIGATION_FIELDS];
+const NUMERIC_FIELDS = [...BIOMETRIC_FIELDS, ...FERTIGATION_FIELDS];
 
 function textOrNull(value) {
   if (value === null || value === undefined) return null;
@@ -44,13 +44,13 @@ function normalizeField(row, field, diagnostics) {
         row.id,
         field,
         INTEGER_FIELDS.has(field) ? "invalid integer" : "invalid finite number",
-        BIOMETRIC_FIELDS.includes(field) || field === "plant_num" ? "biometric" : "fertigation",
+        BIOMETRIC_FIELDS.includes(field) ? "biometric" : "fertigation",
       );
     }
     return null;
   }
-  if (value < 0 || (field === "plant_num" && value < 1)) {
-    diagnostic(diagnostics, row.id, field, "negative or out-of-range value excluded", BIOMETRIC_FIELDS.includes(field) || field === "plant_num" ? "biometric" : "fertigation");
+  if (value < 0) {
+    diagnostic(diagnostics, row.id, field, "negative or out-of-range value excluded", BIOMETRIC_FIELDS.includes(field) ? "biometric" : "fertigation");
     return null;
   }
   return value;
@@ -113,7 +113,6 @@ export function normalizeApprovedAthaniRows(rows, plotLookup = new Map()) {
         ...provenance,
         observation_day: observationDay,
         date_of_observation: observationDate,
-        plant_number: values.plant_num,
         plant_height_cm: values.plant_height,
         number_of_tillers: values.tiller_count,
         number_of_leaves: values.leaf_count,

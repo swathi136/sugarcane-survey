@@ -4,7 +4,6 @@ import { toFiniteMetricOrNull, toIntegerMetricOrNull } from "../metrics/toFinite
 
 
 const INTEGER_FIELDS = new Set([
-  "plant_number",
   "tiller_count",
   "leaf_count",
   "plant_count_1m",
@@ -191,7 +190,6 @@ export function normalizeApprovedCollegeRows(rows, plotLookup = new Map()) {
         ...provenance,
         observation_day: observationDay,
         date_of_observation: observationDate,
-        plant_number: values.plant_number,
         plant_height_cm: values.plant_height,
         number_of_tillers: values.tiller_count,
         number_of_leaves: values.leaf_count,

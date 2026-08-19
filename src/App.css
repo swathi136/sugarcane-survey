@@ -4472,6 +4472,34 @@ button {
   background: var(--edf-canvas) !important;
 }
 
+.student-data-entry-page summary::-webkit-details-marker {
+  display: none;
+}
+
+.student-data-entry-page .multi-input-chevron {
+  transition: transform 180ms ease;
+}
+
+.student-data-entry-page details[open] .multi-input-chevron {
+  transform: rotate(180deg);
+}
+
+/* Restrained analytical chart bars: remove decorative glow, gloss and faux depth. */
+.premium-bar-group > rect:nth-of-type(1),
+.premium-bar-group > rect:nth-of-type(2),
+.premium-bar-group > rect:nth-of-type(6),
+.premium-bar-group > rect:nth-of-type(7) {
+  display: none;
+}
+
+.premium-bar-group .bar-fill {
+  transition: opacity 160ms ease, height 250ms ease, y 250ms ease !important;
+}
+
+.premium-bar-group:hover .bar-fill {
+  opacity: 0.86;
+}
+
 .admin-approval-header,
 .admin-filter-bar,
 .admin-summary-card {
